@@ -1,6 +1,3 @@
--- SemDP — schema + Row Level Security
--- Cole no SQL Editor do Supabase. Pode rodar de novo após atualizar o app.
-
 create table if not exists public.disciplinas (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
