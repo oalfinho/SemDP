@@ -7,7 +7,7 @@ export function toISODate(d: Date) {
 
 export function parseISODate(iso: string) {
   const [d, m, y] = iso.split('-').map(Number)
-  return new Date(d, m - 1, y)
+  return new Date(y, m - 1, d)
 }
 
 export function addDays(iso: string, days: number) {
