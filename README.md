@@ -39,8 +39,7 @@ Quando uma falta é registrada, o sistema atualiza o status da disciplina em tem
 ![Tela de login](./docs/screenshots/auth-screen.svg)
 
 ### Dashboard
-
-![Dashboard do sistema](./docs/screenshots/dashboard.svg)
+(em construção)
 
 ### Disciplinas e faltas
 
