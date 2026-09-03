@@ -9,6 +9,7 @@ export function AuthScreen() {
   const [erro, setErro] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [mostrarSenha, setMostrarSenha] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -55,18 +56,41 @@ export function AuthScreen() {
               className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500"
             />
           </label>
+
           <label className="block text-sm text-zinc-300">
             Senha
-            <input
-              required
-              minLength={6}
-              type="password"
-              autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'}
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500"
-            />
+            <div className="relative mt-1">
+              <input
+                required
+                minLength={6}
+                type={mostrarSenha ? 'text' : 'password'}
+                autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 pr-10 text-zinc-100 outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                onClick={() => setMostrarSenha((v) => !v)}
+                className="absolute inset-y-0 right-3 flex items-center text-zinc-400 hover:text-zinc-200"
+              >
+                {mostrarSenha ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">
+                    <path d="M3 3l18 18" strokeLinecap="round" />
+                    <path d="M10.58 10.58A2 2 0 0013.42 13.42" strokeLinecap="round" />
+                    <path d="M9.88 5.08A11.25 11.25 0 0112 5c4.42 0 8.2 2.69 9.8 7a12.1 12.1 0 01-3.56 5.08M6.61 6.61A13.1 13.1 0 002.2 12c1.6 4.31 5.38 7 9.8 7a11.7 11.7 0 004.15-.74" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </label>
+
           {erro && <p className="text-sm text-rose-400">{erro}</p>}
           {info && <p className="text-sm text-emerald-400">{info}</p>}
           <button
