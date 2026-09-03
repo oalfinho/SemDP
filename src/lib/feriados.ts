@@ -23,7 +23,7 @@ function fixo(ano: number, mes: number, dia: number, nome: string) {
   return { data: toISODate(new Date(ano, mes - 1, dia)), nome }
 }
 
-/** Feriados nacionais + pontos móveis em que normalmente não há aula. */
+// Feriados nacionais + pontos móveis em que normalmente não há aula.
 export function feriadosBrasil(ano: number) {
   const easter = pascoa(ano)
   return [
@@ -50,8 +50,19 @@ export function mapaFeriados(inicioIso: string, fimIso: string) {
   const map = new Map<string, string>()
   for (let ano = inicio.getFullYear(); ano <= fim.getFullYear(); ano++) {
     for (const f of feriadosBrasil(ano)) {
-      if (f.data >= inicioIso && f.data <= fimIso) map.set(f.data, f.nome)
+      const fDate = parseISODate(f.data)
+      if (fDate >= inicio && fDate <= fim) map.set(f.data, f.nome)
     }
   }
   return map
+}
+
+export function proximoFeriado(inicioIso: string, fimIso: string) {
+  const hoje = new Date(2026, 8, 7)
+  const feriados = [...mapaFeriados(inicioIso, fimIso).entries()]
+    .map(([data, nome]) => ({ data, nome, dataDate: parseISODate(data) }))
+    .filter(({ dataDate }) => dataDate >= hoje)
+    .sort((a, b) => a.dataDate.getTime() - b.dataDate.getTime())
+
+  return feriados[0] ?? null
 }
