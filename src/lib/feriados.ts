@@ -58,10 +58,12 @@ export function mapaFeriados(inicioIso: string, fimIso: string) {
 }
 
 export function proximoFeriado(inicioIso: string, fimIso: string) {
-  const hoje = new Date(2026, 8, 7)
+  const hoje = new Date()
+  const hojeInicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+
   const feriados = [...mapaFeriados(inicioIso, fimIso).entries()]
     .map(([data, nome]) => ({ data, nome, dataDate: parseISODate(data) }))
-    .filter(({ dataDate }) => dataDate >= hoje)
+    .filter(({ dataDate }) => dataDate >= hojeInicio)
     .sort((a, b) => a.dataDate.getTime() - b.dataDate.getTime())
 
   return feriados[0] ?? null

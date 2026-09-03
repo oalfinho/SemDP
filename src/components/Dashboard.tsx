@@ -14,7 +14,7 @@ import { GradeSemana } from './GradeSemana'
 import { Modal } from './Modal'
 import { useAuth } from '../context/AuthContext'
 import { aulasDaDisciplina, expandirSemestre } from '../lib/calendario'
-import { DIAS_SEMANA, count50MinAulas, formatarData, hojeLocal, toISODate } from '../lib/datas'
+import { DIAS_SEMANA, count50MinAulas, formatarData, hojeLocal, parseISODate, toISODate } from '../lib/datas'
 import { proximoFeriado } from '../lib/feriados'
 import { db } from '../lib/firebase'
 import type { DiaSemAula, Disciplina, Falta, Horario, Semestre } from '../types'
@@ -64,6 +64,14 @@ export function Dashboard() {
     if (!semestre) return null
     return proximoFeriado(semestre.inicio, semestre.fim)
   }, [semestre])
+
+  const feriadoHoje = useMemo(() => {
+    if (!proximoFeriadoAtual) return false
+    const hoje = new Date()
+    const dataHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+    const dataFeriado = parseISODate(proximoFeriadoAtual.data)
+    return dataHoje.getTime() === dataFeriado.getTime()
+  }, [proximoFeriadoAtual])
 
   async function carregar() {
     const firestore = db
@@ -409,7 +417,9 @@ export function Dashboard() {
 
       {proximoFeriadoAtual && (
         <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300">Próximo feriado</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300">
+            {feriadoHoje ? 'Hoje' : 'Próximo feriado'}
+          </p>
           <p className="mt-1 text-sm font-medium text-amber-100">
             {formatarData(proximoFeriadoAtual.data)} · {proximoFeriadoAtual.nome}
           </p>
