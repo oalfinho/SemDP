@@ -12,6 +12,14 @@ body {
   color: #fafafa;
 }
 
+button,
+[type="button"],
+[type="submit"],
+select,
+summary {
+  cursor: pointer;
+}
+
 #root {
   min-height: 100svh;
 }
