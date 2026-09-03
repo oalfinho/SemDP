@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import {
   addDoc,
   collection,
@@ -14,7 +14,8 @@ import { GradeSemana } from './GradeSemana'
 import { Modal } from './Modal'
 import { useAuth } from '../context/AuthContext'
 import { aulasDaDisciplina, expandirSemestre } from '../lib/calendario'
-import { DIAS_SEMANA, formatarData, hojeLocal, toISODate } from '../lib/datas'
+import { DIAS_SEMANA, count50MinAulas, formatarData, hojeLocal, toISODate } from '../lib/datas'
+import { proximoFeriado } from '../lib/feriados'
 import { db } from '../lib/firebase'
 import type { DiaSemAula, Disciplina, Falta, Horario, Semestre } from '../types'
 
@@ -58,6 +59,11 @@ export function Dashboard() {
   const [modalRecesso, setModalRecesso] = useState(false)
   const [dataRecesso, setDataRecesso] = useState(hojeLocal())
   const [motivoRecesso, setMotivoRecesso] = useState('Recesso acadêmico')
+
+  const proximoFeriadoAtual = useMemo(() => {
+    if (!semestre) return null
+    return proximoFeriado(semestre.inicio, semestre.fim)
+  }, [semestre])
 
   async function carregar() {
     const firestore = db
@@ -135,7 +141,7 @@ export function Dashboard() {
     return expandirSemestre(semestre.inicio, semestre.fim, horarios, extras)
   }, [semestre, horarios, extras])
 
-  async function salvarSemestre(e: FormEvent) {
+  async function salvarSemestre(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const firestore = db
     if (!firestore || !user) return
@@ -164,7 +170,7 @@ export function Dashboard() {
     }
   }
 
-  async function criarDisciplina(e: FormEvent) {
+  async function criarDisciplina(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const firestore = db
     if (!firestore || !user) return
@@ -186,7 +192,9 @@ export function Dashboard() {
     }
   }
 
-  async function criarHorario(e: FormEvent) {
+
+  // Aviso FormEvent Deprecated, utilizar SubmitEvent para não dar aviso mais.
+  async function criarHorario(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const firestore = db
     if (!firestore || !user) return
@@ -214,7 +222,8 @@ export function Dashboard() {
     setModalHorario(true)
   }
 
-  async function criarFalta(e: FormEvent) {
+  // Aviso FormEvent Deprecated, utilizar SubmitEvent para não dar aviso mais.
+  async function criarFalta(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const firestore = db
     if (!firestore || !user || !disciplinaFalta || !semestre) return
@@ -252,7 +261,8 @@ export function Dashboard() {
     }
   }
 
-  async function criarRecesso(e: FormEvent) {
+  // Aviso FormEvent Deprecated, utilizar SubmitEvent para não dar aviso mais.
+  async function criarRecesso(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     const firestore = db
     if (!firestore || !user) return
@@ -327,6 +337,50 @@ export function Dashboard() {
     : []
   const datasFaltaUnicas = [...new Set(datasFalta)]
 
+  // Autofill data de faltas
+  useEffect(() => {
+    if (!disciplinaFalta || !semestre) return
+    if (datasFaltaUnicas.length === 0) return
+
+    const defaultDate = datasFaltaUnicas[0]
+    setDataFalta(defaultDate)
+
+    const { previstas } = aulasDaDisciplina(
+      disciplinaFalta.id,
+      semestre.inicio,
+      semestre.fim,
+      disciplinaFalta.horarios,
+      extras,
+    )
+
+    const noDia = previstas.filter((a) => a.data === defaultDate)
+    if (noDia.length > 0) {
+      const cnt = count50MinAulas(noDia[0].horaInicio, noDia[0].horaFim)
+      setQtdFalta(String(Math.max(1, cnt)))
+    } else {
+      setQtdFalta('1')
+    }
+  }, [disciplinaFalta, semestre, extras])
+
+  // Recalcula quantidade de faltas ao mudar a data (em teste)
+  useEffect(() => {
+    if (!disciplinaFalta || !semestre) return
+
+    const { previstas } = aulasDaDisciplina(
+      disciplinaFalta.id,
+      semestre.inicio,
+      semestre.fim,
+      disciplinaFalta.horarios,
+      extras,
+    )
+
+    const noDia = previstas.filter((a) => a.data === dataFalta)
+    if (noDia.length > 0) {
+      const cnt = count50MinAulas(noDia[0].horaInicio, noDia[0].horaFim)
+      setQtdFalta(String(Math.max(1, cnt)))
+    }
+  }, [dataFalta, disciplinaFalta, semestre, extras])
+
   return (
     <div className="mx-auto min-h-svh max-w-6xl px-4 py-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -352,6 +406,15 @@ export function Dashboard() {
           </button>
         </div>
       </header>
+
+      {proximoFeriadoAtual && (
+        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300">Próximo feriado</p>
+          <p className="mt-1 text-sm font-medium text-amber-100">
+            {formatarData(proximoFeriadoAtual.data)} · {proximoFeriadoAtual.nome}
+          </p>
+        </div>
+      )}
 
       <form
         onSubmit={salvarSemestre}
