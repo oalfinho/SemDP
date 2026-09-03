@@ -2,12 +2,12 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { AuthScreen } from './components/AuthScreen'
 import { Dashboard } from './components/Dashboard'
 import { SetupScreen } from './components/SetupScreen'
-import { isSupabaseConfigured } from './lib/supabase'
+import { isFirebaseConfigured } from './lib/firebase'
 
 function Gate() {
   const { user, loading } = useAuth()
 
-  if (!isSupabaseConfigured) return <SetupScreen />
+  if (!isFirebaseConfigured) return <SetupScreen />
   if (loading) {
     return (
       <div className="flex min-h-svh items-center justify-center text-zinc-500">Carregando…</div>
