@@ -1,21 +1,27 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  updateDoc,
+} from 'firebase/firestore'
 import { DisciplinaCard } from './DisciplinaCard'
 import { GradeSemana } from './GradeSemana'
 import { Modal } from './Modal'
 import { useAuth } from '../context/AuthContext'
 import { aulasDaDisciplina, expandirSemestre } from '../lib/calendario'
 import { DIAS_SEMANA, formatarData, hojeLocal, toISODate } from '../lib/datas'
-import { mapaFeriados } from '../lib/feriados'
-import { supabase } from '../lib/supabase'
-import type { DiaSemAula, Disciplina, Semestre } from '../types'
+import { db } from '../lib/firebase'
+import type { DiaSemAula, Disciplina, Falta, Horario, Semestre } from '../types'
 
 const inputClass =
   'mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500'
 
 function mensagemSchema(msg: string) {
-  if (/schema cache|does not exist|could not find the table/i.test(msg)) {
-    return 'O banco ainda está no schema antigo. No Supabase: SQL Editor → cole supabase/schema.sql → Run. Depois recarregue a página.'
-  }
   return msg
 }
 
@@ -54,42 +60,73 @@ export function Dashboard() {
   const [motivoRecesso, setMotivoRecesso] = useState('Recesso acadêmico')
 
   async function carregar() {
-    if (!supabase) return
+    const firestore = db
+    if (!firestore || !user) return
     setErro(null)
 
-    const [semRes, discRes, extraRes] = await Promise.all([
-      supabase.from('semestres').select('*').maybeSingle(),
-      supabase
-        .from('disciplinas')
-        .select('*, horarios(*), faltas(*)')
-        .order('created_at', { ascending: true }),
-      supabase.from('dias_sem_aula').select('*').order('data', { ascending: true }),
-    ])
+    try {
+      const [semestresSnap, disciplinasSnap, extrasSnap] = await Promise.all([
+        getDocs(query(collection(firestore, 'users', user.uid, 'semestres'), orderBy('created_at', 'asc'))),
+        getDocs(query(collection(firestore, 'users', user.uid, 'disciplinas'), orderBy('created_at', 'asc'))),
+        getDocs(query(collection(firestore, 'users', user.uid, 'diasSemAula'), orderBy('data', 'asc'))),
+      ])
 
-    if (semRes.error && semRes.error.code !== 'PGRST116') setErro(mensagemSchema(semRes.error.message))
-    if (discRes.error) setErro(mensagemSchema(discRes.error.message))
-    if (extraRes.error) setErro(mensagemSchema(extraRes.error.message))
+      const semestreDoc = semestresSnap.docs[0] ?? null
+      const sem = semestreDoc
+        ? ({ id: semestreDoc.id, ...(semestreDoc.data() as Omit<Semestre, 'id'>) } as Semestre)
+        : null
 
-    const sem = (semRes.data as Semestre | null) ?? null
-    setSemestre(sem)
-    if (sem) {
-      setInicio(sem.inicio)
-      setFim(sem.fim)
+      if (sem) {
+        setInicio(sem.inicio)
+        setFim(sem.fim)
+      }
+
+      const disciplinasCarregadas = await Promise.all(
+        disciplinasSnap.docs.map(async (discSnap) => {
+          const rawDisciplina = discSnap.data() as Omit<Disciplina, 'id' | 'horarios' | 'faltas'>
+
+          const [horariosSnap, faltasSnap] = await Promise.all([
+            getDocs(
+              query(collection(firestore, 'users', user.uid, 'disciplinas', discSnap.id, 'horarios'), orderBy('created_at', 'asc')),
+            ),
+            getDocs(
+              query(collection(firestore, 'users', user.uid, 'disciplinas', discSnap.id, 'faltas'), orderBy('created_at', 'asc')),
+            ),
+          ])
+
+          return {
+            id: discSnap.id,
+            ...rawDisciplina,
+            horarios: horariosSnap.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Omit<Horario, 'id'>),
+            })) as Horario[],
+            faltas: faltasSnap.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Omit<Falta, 'id'>),
+            })) as Falta[],
+          } as Disciplina
+        }),
+      )
+
+      setSemestre(sem)
+      setDisciplinas(disciplinasCarregadas)
+      setExtras(
+        extrasSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<DiaSemAula, 'id'>),
+        })) as DiaSemAula[],
+      )
+    } catch (error) {
+      setErro(mensagemSchema(error instanceof Error ? error.message : 'Erro ao carregar dados do Firebase.'))
+    } finally {
+      setCarregando(false)
     }
-    setDisciplinas(
-      ((discRes.data as Disciplina[]) ?? []).map((d) => ({
-        ...d,
-        horarios: d.horarios ?? [],
-        faltas: d.faltas ?? [],
-      })),
-    )
-    setExtras((extraRes.data as DiaSemAula[]) ?? [])
-    setCarregando(false)
   }
 
   useEffect(() => {
     void carregar()
-  }, [])
+  }, [user])
 
   const horarios = useMemo(() => disciplinas.flatMap((d) => d.horarios), [disciplinas])
 
@@ -98,61 +135,77 @@ export function Dashboard() {
     return expandirSemestre(semestre.inicio, semestre.fim, horarios, extras)
   }, [semestre, horarios, extras])
 
-  const feriadosNoPeriodo = useMemo(() => {
-    if (!semestre) return []
-    return [...mapaFeriados(semestre.inicio, semestre.fim).entries()].sort(([a], [b]) =>
-      a.localeCompare(b),
-    )
-  }, [semestre])
-
   async function salvarSemestre(e: FormEvent) {
     e.preventDefault()
-    if (!supabase || !user) return
+    const firestore = db
+    if (!firestore || !user) return
     if (fim < inicio) {
       setErro('A data final precisa ser depois do início.')
       return
     }
-    const payload = { inicio, fim, user_id: user.id }
-    const query = semestre
-      ? supabase.from('semestres').update({ inicio, fim }).eq('id', semestre.id)
-      : supabase.from('semestres').insert(payload)
-    const { error } = await query
-    if (error) setErro(error.message)
-    else await carregar()
+
+    try {
+      const payload = {
+        inicio,
+        fim,
+        user_id: user.uid,
+        created_at: new Date().toISOString(),
+      }
+
+      if (semestre) {
+        await updateDoc(doc(firestore, 'users', user.uid, 'semestres', semestre.id), { inicio, fim })
+      } else {
+        await addDoc(collection(firestore, 'users', user.uid, 'semestres'), payload)
+      }
+
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao salvar semestre.')
+    }
   }
 
   async function criarDisciplina(e: FormEvent) {
     e.preventDefault()
-    if (!supabase) return
-    const { error } = await supabase.from('disciplinas').insert({
-      nome: nome.trim(),
-      percentual_presenca: Number(percentual),
-    })
-    if (error) {
-      setErro(error.message)
-      return
+    const firestore = db
+    if (!firestore || !user) return
+
+    try {
+      await addDoc(collection(firestore, 'users', user.uid, 'disciplinas'), {
+        nome: nome.trim(),
+        percentual_presenca: Number(percentual),
+        user_id: user.uid,
+        created_at: new Date().toISOString(),
+      })
+
+      setNome('')
+      setPercentual('75')
+      setModalDisc(false)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao criar disciplina.')
     }
-    setNome('')
-    setPercentual('75')
-    setModalDisc(false)
-    await carregar()
   }
 
   async function criarHorario(e: FormEvent) {
     e.preventDefault()
-    if (!supabase) return
-    const { error } = await supabase.from('horarios').insert({
-      disciplina_id: disciplinaHorario,
-      dia_semana: diaHorario,
-      hora_inicio: horaInicio,
-      hora_fim: horaFim,
-    })
-    if (error) {
-      setErro(error.message)
-      return
+    const firestore = db
+    if (!firestore || !user) return
+
+    try {
+      await addDoc(collection(firestore, 'users', user.uid, 'disciplinas', disciplinaHorario, 'horarios'), {
+        disciplina_id: disciplinaHorario,
+        dia_semana: diaHorario,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim,
+        user_id: user.uid,
+        created_at: new Date().toISOString(),
+      })
+
+      setModalHorario(false)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao criar horário.')
     }
-    setModalHorario(false)
-    await carregar()
   }
 
   function abrirHorario(dia: number, disciplinaId?: string) {
@@ -163,7 +216,8 @@ export function Dashboard() {
 
   async function criarFalta(e: FormEvent) {
     e.preventDefault()
-    if (!supabase || !disciplinaFalta || !semestre) return
+    const firestore = db
+    if (!firestore || !user || !disciplinaFalta || !semestre) return
 
     const { previstas } = aulasDaDisciplina(
       disciplinaFalta.id,
@@ -178,65 +232,88 @@ export function Dashboard() {
       return
     }
 
-    const { error } = await supabase.from('faltas').insert({
-      disciplina_id: disciplinaFalta.id,
-      data: dataFalta,
-      quantidade: Number(qtdFalta),
-      observacao: obsFalta.trim() || null,
-    })
-    if (error) {
-      setErro(error.message)
-      return
+    try {
+      await addDoc(collection(firestore, 'users', user.uid, 'disciplinas', disciplinaFalta.id, 'faltas'), {
+        disciplina_id: disciplinaFalta.id,
+        data: dataFalta,
+        quantidade: Number(qtdFalta),
+        observacao: obsFalta.trim() || null,
+        user_id: user.uid,
+        created_at: new Date().toISOString(),
+      })
+
+      setDisciplinaFalta(null)
+      setDataFalta(hojeLocal())
+      setQtdFalta('1')
+      setObsFalta('')
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao registrar falta.')
     }
-    setDisciplinaFalta(null)
-    setDataFalta(hojeLocal())
-    setQtdFalta('1')
-    setObsFalta('')
-    await carregar()
   }
 
   async function criarRecesso(e: FormEvent) {
     e.preventDefault()
-    if (!supabase) return
-    const { error } = await supabase.from('dias_sem_aula').insert({
-      data: dataRecesso,
-      motivo: motivoRecesso.trim() || 'Recesso',
-    })
-    if (error) {
-      setErro(error.message)
-      return
+    const firestore = db
+    if (!firestore || !user) return
+
+    try {
+      await addDoc(collection(firestore, 'users', user.uid, 'diasSemAula'), {
+        data: dataRecesso,
+        motivo: motivoRecesso.trim() || 'Recesso',
+        user_id: user.uid,
+      })
+
+      setModalRecesso(false)
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao criar recesso.')
     }
-    setModalRecesso(false)
-    await carregar()
   }
 
   async function excluirDisciplina(id: string) {
-    if (!supabase) return
+    const firestore = db
+    if (!firestore || !user) return
     if (!confirm('Excluir esta disciplina, horários e faltas?')) return
-    const { error } = await supabase.from('disciplinas').delete().eq('id', id)
-    if (error) setErro(error.message)
-    else await carregar()
+
+    try {
+      const [horariosSnap, faltasSnap] = await Promise.all([
+        getDocs(collection(firestore, 'users', user.uid, 'disciplinas', id, 'horarios')),
+        getDocs(collection(firestore, 'users', user.uid, 'disciplinas', id, 'faltas')),
+      ])
+
+      await Promise.all([
+        ...horariosSnap.docs.map((docSnap) => deleteDoc(doc(firestore, 'users', user.uid, 'disciplinas', id, 'horarios', docSnap.id))),
+        ...faltasSnap.docs.map((docSnap) => deleteDoc(doc(firestore, 'users', user.uid, 'disciplinas', id, 'faltas', docSnap.id))),
+        deleteDoc(doc(firestore, 'users', user.uid, 'disciplinas', id)),
+      ])
+
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao excluir disciplina.')
+    }
   }
 
-  async function excluirFalta(id: string) {
-    if (!supabase) return
-    const { error } = await supabase.from('faltas').delete().eq('id', id)
-    if (error) setErro(error.message)
-    else await carregar()
+  async function excluirFalta(disciplinaId: string, id: string) {
+    const firestore = db
+    if (!firestore || !user) return
+    try {
+      await deleteDoc(doc(firestore, 'users', user.uid, 'disciplinas', disciplinaId, 'faltas', id))
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao excluir falta.')
+    }
   }
 
-  async function excluirHorario(id: string) {
-    if (!supabase) return
-    const { error } = await supabase.from('horarios').delete().eq('id', id)
-    if (error) setErro(error.message)
-    else await carregar()
-  }
-
-  async function excluirRecesso(id: string) {
-    if (!supabase) return
-    const { error } = await supabase.from('dias_sem_aula').delete().eq('id', id)
-    if (error) setErro(error.message)
-    else await carregar()
+  async function excluirHorario(disciplinaId: string, id: string) {
+    const firestore = db
+    if (!firestore || !user) return
+    try {
+      await deleteDoc(doc(firestore, 'users', user.uid, 'disciplinas', disciplinaId, 'horarios', id))
+      await carregar()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao excluir horário.')
+    }
   }
 
   const datasFalta = disciplinaFalta && semestre
@@ -337,114 +414,69 @@ export function Dashboard() {
           {disciplinas.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-zinc-800 px-6 py-16 text-center">
               <p className="text-zinc-300">Nenhuma disciplina ainda.</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Ex.: Sexta — Mineração de dados 7:40–11:10 e Matemática 11:30–13:00.
-              </p>
+              <p className="mt-1 text-sm text-zinc-500">Cadastre uma disciplina para começar a acompanhar presença.</p>
             </div>
           ) : (
-            <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {disciplinas.map((d) => (
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {disciplinas.map((disciplina) => (
                 <DisciplinaCard
-                  key={d.id}
-                  disciplina={d}
+                  key={disciplina.id}
+                  disciplina={disciplina}
                   semestre={semestre}
                   extras={extras}
                   onAddFalta={() => {
-                    setDisciplinaFalta(d)
-                    const primeira = semestre
-                      ? aulasDaDisciplina(d.id, semestre.inicio, semestre.fim, d.horarios, extras)
-                          .previstas[0]?.data
-                      : undefined
-                    setDataFalta(primeira ?? hojeLocal())
+                    setDisciplinaFalta(disciplina)
+                    setDataFalta(hojeLocal())
                     setQtdFalta('1')
+                    setObsFalta('')
                   }}
-                  onAddHorario={() => abrirHorario(5, d.id)}
-                  onDelete={() => void excluirDisciplina(d.id)}
-                  onDeleteFalta={(id) => void excluirFalta(id)}
-                  onDeleteHorario={(id) => void excluirHorario(id)}
+                  onAddHorario={() => abrirHorario(diaHorario, disciplina.id)}
+                  onDelete={() => void excluirDisciplina(disciplina.id)}
+                  onDeleteFalta={(id) => void excluirFalta(disciplina.id, id)}
+                  onDeleteHorario={(id) => void excluirHorario(disciplina.id, id)}
                 />
               ))}
-            </section>
-          )}
-
-          {semestre && (
-            <section className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-              <h2 className="font-semibold text-zinc-50">Feriados no período</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Nacionais e pontos móveis (Carnaval, Cinzas, Sexta Santa, Corpus Christi). Aulas nesses
-                dias não entram no total.
-              </p>
-              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                {feriadosNoPeriodo.length === 0 && (
-                  <li className="text-sm text-zinc-500">Nenhum feriado entre as datas do semestre.</li>
-                )}
-                {feriadosNoPeriodo.map(([data, nome]) => (
-                  <li key={data} className="text-sm text-zinc-300">
-                    {formatarData(data)} — {nome}
-                  </li>
-                ))}
-              </ul>
-              {extras.length > 0 && (
-                <>
-                  <h3 className="mt-6 text-sm font-medium text-zinc-200">Recessos cadastrados</h3>
-                  <ul className="mt-2 space-y-1">
-                    {extras.map((d) => (
-                      <li key={d.id} className="flex items-center justify-between text-sm text-zinc-300">
-                        <span>
-                          {formatarData(d.data)} — {d.motivo}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-xs text-zinc-500 hover:text-rose-400"
-                          onClick={() => void excluirRecesso(d.id)}
-                        >
-                          Tirar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </section>
+            </div>
           )}
         </>
       )}
 
       <Modal open={modalDisc} title="Nova disciplina" onClose={() => setModalDisc(false)}>
-        <form onSubmit={criarDisciplina} className="space-y-3">
+        <form onSubmit={criarDisciplina} className="space-y-4">
           <label className="block text-sm text-zinc-300">
-            Nome
+            Nome da disciplina
             <input
               required
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               className={inputClass}
-              placeholder="Mineração de dados"
+              placeholder="História"
             />
           </label>
           <label className="block text-sm text-zinc-300">
-            Presença mínima (%)
+            Percentual mínimo de presença
             <input
-              required
-              min={50}
-              max={100}
               type="number"
+              min={0}
+              max={100}
               value={percentual}
               onChange={(e) => setPercentual(e.target.value)}
               className={inputClass}
             />
           </label>
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 font-medium text-zinc-950 hover:bg-emerald-400"
-          >
-            Salvar
-          </button>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setModalDisc(false)} className="rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-300">
+              Cancelar
+            </button>
+            <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950">
+              Salvar disciplina
+            </button>
+          </div>
         </form>
       </Modal>
 
-      <Modal open={modalHorario} title="Aula na grade" onClose={() => setModalHorario(false)}>
-        <form onSubmit={criarHorario} className="space-y-3">
+      <Modal open={modalHorario} title="Novo horário" onClose={() => setModalHorario(false)}>
+        <form onSubmit={criarHorario} className="space-y-4">
           <label className="block text-sm text-zinc-300">
             Disciplina
             <select
@@ -453,139 +485,116 @@ export function Dashboard() {
               onChange={(e) => setDisciplinaHorario(e.target.value)}
               className={inputClass}
             >
-              {disciplinas.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nome}
+              {disciplinas.map((disciplina) => (
+                <option key={disciplina.id} value={disciplina.id}>
+                  {disciplina.nome}
                 </option>
               ))}
             </select>
           </label>
-          <label className="block text-sm text-zinc-300">
-            Dia da semana
-            <select
-              value={diaHorario}
-              onChange={(e) => setDiaHorario(Number(e.target.value))}
-              className={inputClass}
-            >
-              {DIAS_SEMANA.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm text-zinc-300">
-              Início
-              <input
-                required
-                type="time"
-                value={horaInicio}
-                onChange={(e) => setHoraInicio(e.target.value)}
-                className={inputClass}
-              />
+              Dia da semana
+              <select value={diaHorario} onChange={(e) => setDiaHorario(Number(e.target.value))} className={inputClass}>
+                {DIAS_SEMANA.map((dia) => (
+                  <option key={dia.value} value={dia.value}>
+                    {dia.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block text-sm text-zinc-300">
-              Fim
-              <input
-                required
-                type="time"
-                value={horaFim}
-                onChange={(e) => setHoraFim(e.target.value)}
-                className={inputClass}
-              />
+              Horário
+              <div className="mt-1 flex gap-2">
+                <input value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className={inputClass} />
+                <input value={horaFim} onChange={(e) => setHoraFim(e.target.value)} className={inputClass} />
+              </div>
             </label>
           </div>
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 font-medium text-zinc-950 hover:bg-emerald-400"
-          >
-            Incluir na grade
-          </button>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setModalHorario(false)} className="rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-300">
+              Cancelar
+            </button>
+            <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950">
+              Salvar horário
+            </button>
+          </div>
         </form>
       </Modal>
 
-      <Modal
-        open={disciplinaFalta !== null}
-        title={disciplinaFalta ? `Falta em ${disciplinaFalta.nome}` : 'Falta'}
-        onClose={() => setDisciplinaFalta(null)}
-      >
-        <form onSubmit={criarFalta} className="space-y-3">
-          <label className="block text-sm text-zinc-300">
-            Data da aula
-            <select
-              required
-              value={dataFalta}
-              onChange={(e) => setDataFalta(e.target.value)}
-              className={inputClass}
-            >
-              {datasFaltaUnicas.length === 0 && <option value="">Nenhuma aula no calendário</option>}
-              {datasFaltaUnicas.map((data) => (
-                <option key={data} value={data}>
-                  {formatarData(data)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm text-zinc-300">
-            Aulas perdidas neste dia
-            <input
-              required
-              min={1}
-              type="number"
-              value={qtdFalta}
-              onChange={(e) => setQtdFalta(e.target.value)}
-              className={inputClass}
-            />
-          </label>
-          <label className="block text-sm text-zinc-300">
-            Observação (opcional)
-            <input
-              value={obsFalta}
-              onChange={(e) => setObsFalta(e.target.value)}
-              className={inputClass}
-              placeholder="Atestado, greve…"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={datasFaltaUnicas.length === 0}
-            className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 font-medium text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
-          >
-            Registrar
-          </button>
-        </form>
+      <Modal open={Boolean(disciplinaFalta)} title="Registrar falta" onClose={() => setDisciplinaFalta(null)}>
+        {disciplinaFalta && (
+          <form onSubmit={criarFalta} className="space-y-4">
+            <div>
+              <p className="text-sm text-zinc-400">Disciplina</p>
+              <p className="text-lg font-medium text-zinc-100">{disciplinaFalta.nome}</p>
+            </div>
+
+            <label className="block text-sm text-zinc-300">
+              Data
+              <select value={dataFalta} onChange={(e) => setDataFalta(e.target.value)} className={inputClass}>
+                {datasFaltaUnicas.map((data) => (
+                  <option key={data} value={data}>
+                    {formatarData(data)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm text-zinc-300">
+              Quantidade
+              <input
+                type="number"
+                min={1}
+                value={qtdFalta}
+                onChange={(e) => setQtdFalta(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+
+            <label className="block text-sm text-zinc-300">
+              Observação
+              <input
+                value={obsFalta}
+                onChange={(e) => setObsFalta(e.target.value)}
+                className={inputClass}
+                placeholder="Opcional"
+              />
+            </label>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setDisciplinaFalta(null)} className="rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-300">
+                Cancelar
+              </button>
+              <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950">
+                Salvar falta
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal open={modalRecesso} title="Dia sem aula" onClose={() => setModalRecesso(false)}>
-        <form onSubmit={criarRecesso} className="space-y-3">
-          <p className="text-sm text-zinc-400">
-            Use para recesso da faculdade ou feriado municipal que não está na lista nacional.
-          </p>
+        <form onSubmit={criarRecesso} className="space-y-4">
           <label className="block text-sm text-zinc-300">
             Data
-            <input
-              required
-              type="date"
-              value={dataRecesso}
-              onChange={(e) => setDataRecesso(e.target.value)}
-              className={inputClass}
-            />
+            <input type="date" required value={dataRecesso} onChange={(e) => setDataRecesso(e.target.value)} className={inputClass} />
           </label>
           <label className="block text-sm text-zinc-300">
             Motivo
-            <input
-              value={motivoRecesso}
-              onChange={(e) => setMotivoRecesso(e.target.value)}
-              className={inputClass}
-            />
+            <input value={motivoRecesso} onChange={(e) => setMotivoRecesso(e.target.value)} className={inputClass} />
           </label>
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-emerald-500 px-4 py-2.5 font-medium text-zinc-950 hover:bg-emerald-400"
-          >
-            Salvar
-          </button>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setModalRecesso(false)} className="rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-300">
+              Cancelar
+            </button>
+            <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950">
+              Salvar recesso
+            </button>
+          </div>
         </form>
       </Modal>
     </div>
