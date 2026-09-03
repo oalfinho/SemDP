@@ -13,6 +13,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 
 type AuthValue = {
@@ -21,6 +22,7 @@ type AuthValue = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string) => Promise<string | null>
+  signInWithGoogle: () => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -56,6 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return null
         } catch (error: unknown) {
           return error instanceof Error ? error.message : 'Erro ao entrar.'
+        }
+      },
+      signInWithGoogle: async () => {
+        if (!auth) return 'Firebase não configurado.'
+        try {
+          const provider = new GoogleAuthProvider()
+          await signInWithPopup(auth, provider)
+          return null
+        } catch (error: unknown) {
+          return error instanceof Error ? error.message : 'Erro ao entrar com Google.'
         }
       },
       signUp: async (email, password) => {
