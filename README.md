@@ -2,7 +2,7 @@
 
 Controle de faltas do semestre para não tomar DP. Cada disciplina mostra quantas aulas você já perdeu, o limite (em geral 25% da carga) e quantas ainda restam.
 
-Stack: **React + Vite + TypeScript + Tailwind CSS + Supabase**.
+Stack: **React + Vite + TypeScript + Tailwind CSS + Firebase**.
 
 ## Setup
 
@@ -10,6 +10,8 @@ Stack: **React + Vite + TypeScript + Tailwind CSS + Supabase**.
 npm install
 cp .env.example .env
 ```
+
+Configure as variáveis do Firebase no arquivo `.env` usando as chaves do seu projeto no console do Firebase.
 
 ## Calendário
 
