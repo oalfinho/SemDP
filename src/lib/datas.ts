@@ -6,8 +6,38 @@ export function toISODate(d: Date) {
 }
 
 export function parseISODate(iso: string) {
-  const [d, m, y] = iso.split('-').map(Number)
+  const parts = iso.split('-').map(Number)
+  if (parts.length !== 3) return new Date(iso)
+
+  // Support both `dd-mm-yyyy` and `yyyy-mm-dd` formats.
+  let d: number, m: number, y: number
+  if (parts[0] > 31) {
+    // assume `yyyy-mm-dd`
+    y = parts[0]
+    m = parts[1]
+    d = parts[2]
+  } else {
+    // assume `dd-mm-yyyy` (legacy in this project)
+    d = parts[0]
+    m = parts[1]
+    y = parts[2]
+  }
+
+  // Guard against two-digit years (e.g. "02" -> 1902). Interpret 0-99 as 2000-2099.
+  if (y >= 0 && y < 100) y += 2000
+
   return new Date(y, m - 1, d)
+}
+
+export function count50MinAulas(horaInicio: string, horaFim: string) {
+  const parseMin = (h: string) => {
+    const [hh, mm] = h.slice(0, 5).split(':').map(Number)
+    return (hh || 0) * 60 + (mm || 0)
+  }
+  const start = parseMin(horaInicio)
+  const end = parseMin(horaFim)
+  const diff = Math.max(0, end - start)
+  return Math.floor(diff / 50)
 }
 
 export function addDays(iso: string, days: number) {
