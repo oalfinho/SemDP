@@ -6,12 +6,18 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from 'firebase/auth'
+import { auth } from '../lib/firebase'
 
 type AuthValue = {
   user: User | null
-  session: Session | null
+  session: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (email: string, password: string) => Promise<string | null>
@@ -21,47 +27,52 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!supabase) {
+    if (!auth) {
       setLoading(false)
       return
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser)
       setLoading(false)
     })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next)
-    })
-
-    return () => data.subscription.unsubscribe()
+    return unsubscribe
   }, [])
 
   const value = useMemo<AuthValue>(
     () => ({
-      user: session?.user ?? null,
-      session,
+      user,
+      session: user,
       loading,
       signIn: async (email, password) => {
-        if (!supabase) return 'Supabase não configurado.'
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        return error ? error.message : null
+        if (!auth) return 'Firebase não configurado.'
+        try {
+          await signInWithEmailAndPassword(auth, email, password)
+          return null
+        } catch (error: unknown) {
+          return error instanceof Error ? error.message : 'Erro ao entrar.'
+        }
       },
       signUp: async (email, password) => {
-        if (!supabase) return 'Supabase não configurado.'
-        const { error } = await supabase.auth.signUp({ email, password })
-        return error ? error.message : null
+        if (!auth) return 'Firebase não configurado.'
+        try {
+          await createUserWithEmailAndPassword(auth, email, password)
+          return null
+        } catch (error: unknown) {
+          return error instanceof Error ? error.message : 'Erro ao criar conta.'
+        }
       },
       signOut: async () => {
-        await supabase?.auth.signOut()
+        if (!auth) return
+        await signOut(auth)
       },
     }),
-    [session, loading],
+    [user, loading],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
