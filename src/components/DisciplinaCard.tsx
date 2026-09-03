@@ -22,7 +22,7 @@ type Props = {
   semestre: Semestre | null
   extras: DiaSemAula[]
   onAddFalta: () => void
-  onAddHorario: () => void
+  onAddHorario: (diaSemana?: number) => void
   onDelete: () => void
   onDeleteFalta: (id: string) => void
   onDeleteHorario: (id: string) => void
@@ -64,31 +64,31 @@ export function DisciplinaCard({
   const faltasOrdenadas = [...disciplina.faltas].sort((a, b) => b.data.localeCompare(a.data))
 
   return (
-    <article className={`flex flex-col rounded-2xl border bg-zinc-900/70 p-5 ${estilos[status]}`}>
+    <article className={`flex flex-col rounded-2xl border bg-gradient-to-b from-zinc-900 to-zinc-950 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] ${estilos[status]}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-zinc-50">{disciplina.nome}</h2>
-          <p className="mt-1 text-xs uppercase tracking-wide text-zinc-500">
+          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
             {total === 0 ? 'Sem aulas no calendário' : rotulos[status]}
           </p>
         </div>
-        <button type="button" onClick={onDelete} className="text-xs text-zinc-500 hover:text-rose-400">
+        <button type="button" onClick={onDelete} className="rounded-lg border border-zinc-800 px-2 py-1 text-[11px] text-zinc-400 transition hover:border-rose-500/50 hover:text-rose-300">
           Excluir
         </button>
       </div>
 
-      <ul className="mt-3 space-y-1 text-sm text-zinc-300">
+      <ul className="mt-4 space-y-2 text-sm text-zinc-300">
         {horarios.length === 0 && (
-          <li className="text-zinc-500">Cadastre o dia da semana e o horário.</li>
+          <li className="rounded-xl border border-dashed border-zinc-700 bg-zinc-950/50 px-3 py-2 text-zinc-500">Cadastre o dia da semana e o horário.</li>
         )}
         {horarios.map((h) => (
-          <li key={h.id} className="flex items-center justify-between gap-2">
+          <li key={h.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2">
             <span>
               {nomeDia(h.dia_semana)} · {formatarHora(h.hora_inicio)} às {formatarHora(h.hora_fim)}
             </span>
             <button
               type="button"
-              className="text-xs text-zinc-500 hover:text-rose-400"
+              className="text-[11px] text-zinc-500 transition hover:text-rose-300"
               onClick={() => onDeleteHorario(h.id)}
             >
               Tirar
@@ -98,17 +98,17 @@ export function DisciplinaCard({
       </ul>
 
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl bg-zinc-950/80 px-2 py-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
           <dt className="text-[11px] text-zinc-500">No semestre</dt>
-          <dd className="text-xl font-semibold text-zinc-50">{total}</dd>
+          <dd className="mt-1 text-xl font-semibold text-zinc-50">{total}</dd>
         </div>
-        <div className="rounded-xl bg-zinc-950/80 px-2 py-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
           <dt className="text-[11px] text-zinc-500">Limite</dt>
-          <dd className="text-xl font-semibold text-zinc-50">{limite}</dd>
+          <dd className="mt-1 text-xl font-semibold text-zinc-50">{limite}</dd>
         </div>
-        <div className="rounded-xl bg-zinc-950/80 px-2 py-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
           <dt className="text-[11px] text-zinc-500">Restam</dt>
-          <dd className={`text-xl font-semibold ${restantes < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+          <dd className={`mt-1 text-xl font-semibold ${restantes < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
             {restantes}
           </dd>
         </div>
@@ -126,26 +126,26 @@ export function DisciplinaCard({
       <div className="mt-4 flex gap-2">
         <button
           type="button"
-          onClick={onAddHorario}
-          className="flex-1 rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-500 hover:text-emerald-300"
+          onClick={() => onAddHorario(horarios[0]?.dia_semana ?? 1)}
+          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-300"
         >
           Horário
         </button>
         <button
           type="button"
           onClick={onAddFalta}
-          className="flex-1 rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-emerald-500 hover:text-emerald-300"
+          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-300"
         >
           Falta
         </button>
       </div>
 
       <ul className="mt-4 max-h-40 space-y-2 overflow-auto text-sm">
-        {faltasOrdenadas.length === 0 && <li className="text-zinc-500">Nenhuma falta registrada.</li>}
+        {faltasOrdenadas.length === 0 && <li className="rounded-xl border border-dashed border-zinc-700 px-3 py-2 text-zinc-500">Nenhuma falta registrada.</li>}
         {faltasOrdenadas.map((falta) => (
           <li
             key={falta.id}
-            className="flex items-center justify-between gap-2 rounded-lg bg-zinc-950/60 px-3 py-2"
+            className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2"
           >
             <span className="text-zinc-300">
               {formatarData(falta.data)} · {falta.quantidade} aula{falta.quantidade > 1 ? 's' : ''}
@@ -153,7 +153,7 @@ export function DisciplinaCard({
             </span>
             <button
               type="button"
-              className="shrink-0 text-xs text-zinc-500 hover:text-rose-400"
+              className="shrink-0 text-[11px] text-zinc-500 transition hover:text-rose-300"
               onClick={() => onDeleteFalta(falta.id)}
             >
               Tirar
