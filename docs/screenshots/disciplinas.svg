@@ -1,0 +1,32 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="800" fill="#09090B"/>
+  <rect x="0" y="0" width="1200" height="800" fill="url(#bg)"/>
+
+  <rect x="110" y="90" width="980" height="620" rx="28" fill="#121317" stroke="#2A2D32"/>
+  <text x="150" y="150" fill="#F4F4F5" font-size="30" font-family="Arial, sans-serif" font-weight="700">Disciplinas</text>
+
+  <g>
+    <rect x="150" y="190" width="900" height="150" rx="22" fill="#1C1C22" stroke="#2A2D32"/>
+    <text x="185" y="235" fill="#F4F4F5" font-size="28" font-family="Arial, sans-serif" font-weight="700">História</text>
+    <text x="185" y="275" fill="#A1A1AA" font-size="18" font-family="Arial, sans-serif">Segunda · 07:40 às 11:10</text>
+    <text x="185" y="307" fill="#A1A1AA" font-size="18" font-family="Arial, sans-serif">No semestre: 30 · Limite: 6 · Restam: 4</text>
+    <rect x="780" y="218" width="220" height="50" rx="14" fill="#34D399"/>
+    <text x="890" y="252" text-anchor="middle" fill="#0B0F0D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Falta</text>
+  </g>
+
+  <g>
+    <rect x="150" y="370" width="900" height="150" rx="22" fill="#1C1C22" stroke="#2A2D32"/>
+    <text x="185" y="415" fill="#F4F4F5" font-size="28" font-family="Arial, sans-serif" font-weight="700">Geografia</text>
+    <text x="185" y="455" fill="#A1A1AA" font-size="18" font-family="Arial, sans-serif">Quarta · 09:00 às 10:50</text>
+    <text x="185" y="487" fill="#A1A1AA" font-size="18" font-family="Arial, sans-serif">No semestre: 18 · Limite: 4 · Restam: 2</text>
+    <rect x="780" y="398" width="220" height="50" rx="14" fill="#34D399"/>
+    <text x="890" y="432" text-anchor="middle" fill="#0B0F0D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Falta</text>
+  </g>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#09090B"/>
+      <stop offset="1" stop-color="#101827"/>
+    </linearGradient>
+  </defs>
+</svg>
