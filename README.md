@@ -1,10 +1,12 @@
 # SemDP
 
-SemDP é um painel para controle de presença acadêmica, com foco em evitar a DP e manter o percentual de presença sempre em dia. O usuário insere o semestre, a grade semanal, as faltas por disciplina e o sistema calcula automaticamente o limite de faltas por percentual e o status de risco.
+SemDP é um app para controlar faltas ao longo do semestre e acompanhar se a presença está dentro do limite da disciplina.
 
-A proposta do projeto é simples e útil: ao invés de controlar presença manualmente em planilhas, o estudante consegue acompanhar aulas, feriados, recesso e limites em um único lugar.
+O objetivo é simples: deixar o estudante sem precisar ficar calculando manualmente quanto já faltou, quanto ainda pode faltar e quando a disciplina entra em risco de DP.
 
-## Stack
+O projeto foi pensado para uso real no dia a dia da universidade, com uma interface direta, dados por usuário e cálculo automático de presença.
+
+## Tecnologias
 
 - React + Vite
 - TypeScript
@@ -12,23 +14,25 @@ A proposta do projeto é simples e útil: ao invés de controlar presença manua
 - Firebase Authentication
 - Cloud Firestore
 
-## Principais funcionalidades
+## O que ele faz
 
-- Cadastro de disciplinas e percentual mínimo de presença
-- Grade semanal com dia, horário e disciplina
-- Cálculo automático de aulas no semestre
-- Registro de faltas com quantidade por aula
-- Exibição de limite de faltas, faltas usadas e restante
-- Identificação de feriados nacionais e recessos
-- Próximo feriado destacado no dashboard
-- Autenticação por e-mail e Google
-- Dados por usuário em Firestore
+- cadastra disciplinas e percentual mínimo de presença
+- monta a grade semanal do semestre
+- calcula aulas previstas no período
+- registra faltas por data e disciplina
+- mostra limite de faltas, faltas usadas e faltas restantes
+- ignora feriados nacionais e dias de recesso cadastrados
+- mostra o próximo feriado em destaque no dashboard
+- permite login com e-mail e Google
+- mantém os dados separados por usuário no Firebase
 
-## Diferencial do produto
+## Como funciona
 
-O projeto resolve um problema real do cotidiano universitário: acompanhar presença e entender rapidamente se o aluno está em risco de perder a DP. A experiência foi pensada para ser objetiva, com dashboard enxuto e foco em leitura rápida de indicadores.
+Você define o período do semestre e a grade de aulas. A partir daí, o app calcula quantas aulas existem no período e a quantidade máxima permitida para manter a presença dentro do mínimo da disciplina.
 
-## Screenshots
+Quando uma falta é registrada, o sistema atualiza o status da disciplina em tempo real e deixa claro se o aluno ainda está dentro do limite ou se já está em risco de DP.
+
+## Interface
 
 ### Login
 
@@ -46,18 +50,20 @@ O projeto resolve um problema real do cotidiano universitário: acompanhar prese
 
 ```text
 src/
-  components/      Componentes da interface
-  context/         Contexto de autenticação
-  lib/             Utilitários de calendário, datas e Firebase
-  types.ts         Tipos principais da aplicação
+  components/
+  context/
+  lib/
+  types.ts
 public/
-  assets/
+  logo.svg
+  semdp_logo_dark.svg
+  semdp_favicon_calendario.svg
 
 docs/
-  screenshots/     Imagens para apresentação do projeto
+  screenshots/
 ```
 
-## Como executar
+## Como rodar localmente
 
 ```bash
 npm install
@@ -65,7 +71,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Preencha as variáveis de ambiente do Firebase em `.env` e inicie o projeto.
+Depois é só preencher as variáveis do Firebase no arquivo `.env` com as chaves do projeto.
 
 ## Build
 
@@ -75,10 +81,10 @@ npm run build
 
 ## Observações
 
-- O app foi pensado para uso acadêmico em semestres e calendário universitário
-- O cálculo de aulas considera blocos de 50 minutos por aula
-- A lógica de feriados e calendário foi ajustada para evitar erros de data e tratar melhor o período do semestre
+- o cálculo considera blocos de 50 minutos por aula
+- o calendário considera feriados nacionais e recessos cadastrados pelo usuário
+- a ideia principal do projeto é reduzir a fricção de acompanhar presença em faculdade sem depender de planilha ou cálculo manual
 
 ## Status
 
-Projeto funcional e em evolução contínua, com foco em usabilidade, clareza dos dados e experiência acadêmica mais tranquila.
+Projeto funcionando e em evolução, com foco em experiência prática, clareza visual e uso real no cotidiano acadêmico.
