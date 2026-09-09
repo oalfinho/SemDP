@@ -109,6 +109,12 @@ export function Dashboard() {
     horaInicio: string,
     horaFim: string,
   ) {
+    console.log({
+      disciplinaId,
+      dia,
+      horaInicio,
+      horaFim,
+    })
     if (!user) return
 
     try {

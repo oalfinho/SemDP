@@ -1,4 +1,4 @@
-import { type SubmitEvent, useState } from 'react'
+import { type SubmitEvent, useEffect, useState } from 'react'
 import { Modal } from '../Modal'
 import { DIAS_SEMANA } from '../../lib/datas'
 import type { Disciplina } from '../../types'
@@ -41,6 +41,13 @@ export function HorarioModal({
     setHoraFim('11:10')
     onClose()
   }
+
+  useEffect(() => {
+  if (open) {
+    setDisciplinaId(initialDisciplinaId || disciplinas[0]?.id || '')
+    setDia(initialDia)
+  }
+}, [open, disciplinas, initialDisciplinaId, initialDia])
 
   return (
     <Modal open={open} title="Novo horário" onClose={handleClose}>
