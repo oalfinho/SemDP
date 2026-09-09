@@ -46,10 +46,10 @@ permitindo acompanhar em tempo real o risco de reprovação por frequência.
 ## Interface
 
 ### Login
-![LOGIN] (docs/screenshots/telalogin.png)
+![LOGIN](docs/screenshots/telalogin.png)
 
 ### Disciplinas e faltas
-![TELAPRINCIPAL] (docs/screenshots/telaprincipal.png)
+![TELAPRINCIPAL](docs/screenshots/telaprincipal.png)
 
 ## Roadmap
 
