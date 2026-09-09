@@ -35,11 +35,11 @@ permitindo acompanhar em tempo real o risco de reprovação por frequência.
 
 ## Algoritmos implementados
 
-✓ cálculo de frequência
-✓ projeção de faltas
-✓ calendário acadêmico
-✓ tratamento de feriados
-✓ autenticação
+✓ cálculo de frequência <br>
+✓ projeção de faltas <br>
+✓ calendário acadêmico <br>
+✓ tratamento de feriados <br>
+✓ autenticação <br>
 ✓ persistência em nuvem
 
 
