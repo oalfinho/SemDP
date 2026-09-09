@@ -1,10 +1,17 @@
 # SemDP
 
-SemDP é um app para controlar faltas ao longo do semestre e acompanhar se a presença está dentro do limite da disciplina.
+Quantas faltas eu ainda posso ter sem pegar DP?
 
-O objetivo é simples: deixar o estudante sem precisar ficar calculando manualmente quanto já faltou, quanto ainda pode faltar e quando a disciplina entra em risco de DP.
+Essa é uma dúvida que praticamente todo universitário tem durante o semestre.
 
-O projeto foi pensado para uso real no dia a dia da universidade, com uma interface direta, dados por usuário e cálculo automático de presença.
+O SemDP automatiza esse cálculo considerando:
+- carga horária
+- presença mínima
+- grade semanal
+- feriados
+- recessos
+
+permitindo acompanhar em tempo real o risco de reprovação por frequência.
 
 ## Tecnologias
 
@@ -26,57 +33,39 @@ O projeto foi pensado para uso real no dia a dia da universidade, com uma interf
 - permite login com e-mail e Google
 - mantém os dados separados por usuário no Firebase
 
-## Como funciona
+## Algoritmos implementados
 
-Você define o período do semestre e a grade de aulas. A partir daí, o app calcula quantas aulas existem no período e a quantidade máxima permitida para manter a presença dentro do mínimo da disciplina.
+✓ cálculo de frequência
+✓ projeção de faltas
+✓ calendário acadêmico
+✓ tratamento de feriados
+✓ autenticação
+✓ persistência em nuvem
 
-Quando uma falta é registrada, o sistema atualiza o status da disciplina em tempo real e deixa claro se o aluno ainda está dentro do limite ou se já está em risco de DP.
 
 ## Interface
 
 ### Login
-
-![Tela de login](./docs/screenshots/auth-screen.svg)
+(em construção)
 
 ### Dashboard
 (em construção)
 
 ### Disciplinas e faltas
+(em construção)
 
-![Disciplinas com controle de faltas](./docs/screenshots/disciplinas.svg)
 
-## Estrutura do projeto
+## Roadmap
 
-```text
-src/
-  components/
-  context/
-  lib/
-  types.ts
-public/
-  logo.svg
-  semdp_logo_dark.svg
-  semdp_favicon_calendario.svg
+Próximas funcionalidades planejadas:
 
-docs/
-  screenshots/
-```
-
-## Como rodar localmente
-
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
-
-Depois é só preencher as variáveis do Firebase no arquivo `.env` com as chaves do projeto.
-
-## Build
-
-```bash
-npm run build
-```
+- Transformar o SemDP em um Progressive Web App (PWA)
+- Instalação direta no celular e desktop
+- Funcionamento offline para consulta e registro de faltas
+- Sincronização automática quando a conexão retornar
+- Dashboard com indicadores visuais de risco de DP
+- Estatísticas de presença por disciplina
+- Notificações para disciplinas próximas do limite de faltas
 
 ## Observações
 
@@ -84,6 +73,8 @@ npm run build
 - o calendário considera feriados nacionais e recessos cadastrados pelo usuário
 - a ideia principal do projeto é reduzir a fricção de acompanhar presença em faculdade sem depender de planilha ou cálculo manual
 
-## Status
+## Acesso
 
-Projeto funcionando e em evolução, com foco em experiência prática, clareza visual e uso real no cotidiano acadêmico.
+O SemDP está disponível diretamente pelo navegador, sem necessidade de instalação ou configuração.
+
+Em versões futuras, o projeto também poderá ser instalado como aplicativo (PWA) em celulares Android, iPhone e computadores compatíveis.
