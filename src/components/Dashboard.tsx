@@ -17,6 +17,8 @@ import { criarFalta, excluirFalta, validarFalta } from '../services/faltasServic
 import { salvarSemestre } from '../services/semestreService'
 import { criarRecesso } from '../services/recessosService'
 import { DashboardHeader } from './dashboard/DashboardHeader'
+import { DashboardError } from './dashboard/DashboardError'
+import { DashboardEmpty } from './dashboard/DashboardEmpty'
 
 const inputClass =
   'mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500'
@@ -246,13 +248,8 @@ export function Dashboard() {
           </p>
         )}
       </form>
-
-      {appError && (
-        <p className="mt-4 rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
-          {appError}
-        </p>
-      )}
-
+      <DashboardError message={appError} />
+      
       {loading ? (
         <p className="mt-16 text-center text-zinc-500">Carregando…</p>
       ) : (

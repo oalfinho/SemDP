@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import type { Disciplina, Semestre, DiaSemAula } from '../types'
 import { carregarDisciplinas } from '../services/disciplinasService'
