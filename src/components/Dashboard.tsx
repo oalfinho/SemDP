@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
-import { DisciplinaCard } from './DisciplinaCard'
 import { GradeSemana } from './GradeSemana'
 import { DisciplinaModal } from './modals/DisciplinaModal'
 import { HorarioModal } from './modals/HorarioModal'
@@ -7,7 +6,7 @@ import { FaltaModal } from './modals/FaltaModal'
 import { RecessoModal } from './modals/RecessoModal'
 import { useAuth } from '../context/AuthContext'
 import { expandirSemestre } from '../lib/calendario'
-import { hojeLocal, toISODate, formatarData } from '../lib/datas'
+import { hojeLocal, toISODate } from '../lib/datas'
 import { proximoFeriado } from '../lib/feriados'
 import { useDashboardData } from '../hooks/useDashboardData'
 import type { Disciplina } from '../types'
@@ -19,9 +18,9 @@ import { criarRecesso } from '../services/recessosService'
 import { DashboardHeader } from './dashboard/DashboardHeader'
 import { DashboardError } from './dashboard/DashboardError'
 import { DashboardEmpty } from './dashboard/DashboardEmpty'
-
-const inputClass =
-  'mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500'
+import { DashboardSemesterForm } from './dashboard/DashboardSemesterForm'
+import { DashboardDisciplinas } from './dashboard/DashboardDisciplinas'
+import { DashboardFeriado } from './dashboard/DashboardFeriado'
 
 export function Dashboard() {
   const { user, signOut } = useAuth()
@@ -201,53 +200,22 @@ export function Dashboard() {
         />
 
       {proximoFeriadoAtual && (
-        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300">
-            {feriadoHoje ? 'Hoje' : 'Próximo feriado'}
-          </p>
-          <p className="mt-1 text-sm font-medium text-amber-100">
-            {formatarData(proximoFeriadoAtual.data)} · {proximoFeriadoAtual.nome}
-          </p>
-        </div>
-      )}
-
-      <form
+        <DashboardFeriado
+        nome={proximoFeriadoAtual.nome}
+        data={proximoFeriadoAtual.data}
+        feriadoHoje={feriadoHoje}
+  />
+)}
+      <DashboardSemesterForm
+        inicio={inicio}
+        fim={fim}
+        semestre={semestre}
+        resumo={resumo}
+        onInicioChange={setInicio}
+        onFimChange={setFim}
         onSubmit={handleSalvarSemestre}
-        className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4"
-      >
-        <label className="text-sm text-zinc-300">
-          Início do semestre
-          <input
-            type="date"
-            required
-            value={inicio}
-            onChange={(e) => setInicio(e.target.value)}
-            className={inputClass}
-          />
-        </label>
-        <label className="text-sm text-zinc-300">
-          Fim do semestre
-          <input
-            type="date"
-            required
-            value={fim}
-            onChange={(e) => setFim(e.target.value)}
-            className={inputClass}
-          />
-        </label>
-        <button
-          type="submit"
-          className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-white"
-        >
-          {semestre ? 'Atualizar período' : 'Definir semestre'}
-        </button>
-        {resumo && (
-          <p className="text-sm text-zinc-400">
-            {resumo.previstas.length} aula{resumo.previstas.length === 1 ? '' : 's'} no calendário ·{' '}
-            {resumo.puladas.length} pulada{resumo.puladas.length === 1 ? '' : 's'} por feriado/recesso
-          </p>
-        )}
-      </form>
+        />
+     
       <DashboardError message={appError} />
 
       {loading ? (
@@ -279,23 +247,16 @@ export function Dashboard() {
           {disciplinas.length === 0 ? (
            <DashboardEmpty />
           ) : (
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {disciplinas.map((disciplina) => (
-                <DisciplinaCard
-                  key={disciplina.id}
-                  disciplina={disciplina}
-                  semestre={semestre}
-                  extras={extras}
-                  onAddFalta={() => {
-                    setDisciplinaFalta(disciplina)
-                  }}
-                  onAddHorario={() => abrirHorario(diaHorarioSelecionado)}
-                  onDelete={() => void handleExcluirDisciplina(disciplina.id)}
-                  onDeleteFalta={(id) => void handleExcluirFalta(disciplina.id, id)}
-                  onDeleteHorario={(id) => void handleExcluirHorario(disciplina.id, id)}
-                />
-              ))}
-            </div>
+           <DashboardDisciplinas
+            disciplinas={disciplinas}
+            semestre={semestre}
+            extras={extras}
+            onAddFalta={setDisciplinaFalta}
+            onAddHorario={(dia) => abrirHorario(dia ?? 1)}
+            onDeleteDisciplina={handleExcluirDisciplina}
+            onDeleteFalta={handleExcluirFalta}
+            onDeleteHorario={handleExcluirHorario}
+        />
           )}
         </>
       )}
