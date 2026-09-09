@@ -46,14 +46,10 @@ permitindo acompanhar em tempo real o risco de reprovação por frequência.
 ## Interface
 
 ### Login
-(em construção)
-
-### Dashboard
-(em construção)
+![LOGIN] (docs/screenshots/telalogin.png)
 
 ### Disciplinas e faltas
-(em construção)
-
+![TELAPRINCIPAL] (docs/screenshots/telaprincipal.png)
 
 ## Roadmap
 
