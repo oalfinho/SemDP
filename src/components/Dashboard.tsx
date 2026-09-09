@@ -249,7 +249,7 @@ export function Dashboard() {
         )}
       </form>
       <DashboardError message={appError} />
-      
+
       {loading ? (
         <p className="mt-16 text-center text-zinc-500">Carregando…</p>
       ) : (
@@ -277,12 +277,7 @@ export function Dashboard() {
           </div>
 
           {disciplinas.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-zinc-800 px-6 py-16 text-center">
-              <p className="text-zinc-300">Nenhuma disciplina ainda.</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Cadastre uma disciplina para começar a acompanhar presença.
-              </p>
-            </div>
+           <DashboardEmpty />
           ) : (
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {disciplinas.map((disciplina) => (
