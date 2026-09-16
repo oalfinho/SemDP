@@ -23,6 +23,7 @@ export type Disciplina = {
   user_id: string
   nome: string
   percentual_presenca: number
+  total_aulas: number
   created_at: string
   horarios: Horario[]
   faltas: Falta[]

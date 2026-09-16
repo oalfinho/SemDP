@@ -91,11 +91,11 @@ export function Dashboard() {
     }
   }
 
-  async function handleCriarDisciplina(nome: string, percentual: number) {
+  async function handleCriarDisciplina(nome: string, percentual: number, totalAulas: number) {
     if (!user) return
 
     try {
-      await criarDisciplina(user.uid, nome, percentual)
+      await criarDisciplina(user.uid, nome, percentual, totalAulas)
       setModalDisc(false)
       await reload()
     } catch (err) {

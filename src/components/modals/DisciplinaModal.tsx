@@ -4,7 +4,10 @@ import { Modal } from '../Modal'
 interface DisciplinaModalProps {
   open: boolean
   onClose: () => void
-  onSubmit: (nome: string, percentual: number) => Promise<void> | void
+  onSubmit: (nome: string, 
+    percentual: number,
+    totalAulas: number
+  ) => Promise<void> | void
 }
 
 const inputClass =
@@ -13,17 +16,22 @@ const inputClass =
 export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProps) {
   const [nome, setNome] = useState('')
   const [percentual, setPercentual] = useState('75')
+  const [totalAulas, setTotalAulas] = useState('0')
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
-    await onSubmit(nome, Number(percentual))
+    await onSubmit(nome, 
+      Number(percentual), 
+      Number(totalAulas))
     setNome('')
     setPercentual('75')
+    setTotalAulas('')
   }
 
   function handleClose() {
     setNome('')
     setPercentual('75')
+    setTotalAulas('')
     onClose()
   }
 
@@ -49,6 +57,18 @@ export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProp
             value={percentual}
             onChange={(e) => setPercentual(e.target.value)}
             className={inputClass}
+          />
+        </label>
+        <label className="block text-sm text-zinc-300">
+          Total de aulas no semestre
+          <input
+            type="number"
+            min={1}
+            required
+            value={totalAulas}
+            onChange={(e) => setTotalAulas(e.target.value)}
+            className={inputClass}
+            placeholder='120 aulas'
           />
         </label>
         <div className="flex justify-end gap-2 pt-2">

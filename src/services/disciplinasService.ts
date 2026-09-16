@@ -6,6 +6,7 @@ export async function criarDisciplina(
   userId: string,
   nome: string,
   percentual_presenca: number,
+  total_aulas: number,
 ): Promise<void> {
   const firestore = db
   if (!firestore) throw new Error('Firebase não inicializado')
@@ -13,6 +14,7 @@ export async function criarDisciplina(
   await addDoc(collection(firestore, 'users', userId, 'disciplinas'), {
     nome: nome.trim(),
     percentual_presenca,
+    total_aulas,
     user_id: userId,
     created_at: new Date().toISOString(),
   })

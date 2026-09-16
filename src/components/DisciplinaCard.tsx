@@ -42,7 +42,7 @@ export function DisciplinaCard({
     ? aulasDaDisciplina(disciplina.id, semestre.inicio, semestre.fim, disciplina.horarios, extras)
     : { previstas: [], puladas: [] }
 
-  const total = calc.previstas.length
+  const total = disciplina.total_aulas
   const usadas = disciplina.faltas.reduce((acc, f) => acc + f.quantidade, 0)
   const limite = limiteFaltas(total, disciplina.percentual_presenca)
   const restantes = limite - usadas
