@@ -42,7 +42,8 @@ export function DisciplinaCard({
     ? aulasDaDisciplina(disciplina.id, semestre.inicio, semestre.fim, disciplina.horarios, extras)
     : { previstas: [], puladas: [] }
 
-  const total = disciplina.total_aulas
+  // O calendário é a fonte de verdade assim que o período e os horários existem.
+  const total = semestre && disciplina.horarios.length > 0 ? calc.previstas.length : disciplina.total_aulas
   const usadas = disciplina.faltas.reduce((acc, f) => acc + f.quantidade, 0)
   const limite = limiteFaltas(total, disciplina.percentual_presenca)
   const restantes = limite - usadas
@@ -99,7 +100,7 @@ export function DisciplinaCard({
 
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
-          <dt className="text-[11px] text-zinc-500">No semestre</dt>
+          <dt className="text-[11px] text-zinc-500">Aulas calculadas</dt>
           <dd className="mt-1 text-xl font-semibold text-zinc-50">{total}</dd>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">

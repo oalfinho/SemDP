@@ -32,6 +32,13 @@ body {
     radial-gradient(circle at top, rgba(16, 185, 129, 0.15), transparent 35%),
     linear-gradient(180deg, #09090b 0%, #111827 100%);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 640px) {
+  body {
+    background: radial-gradient(circle at 30% 0%, rgba(16, 185, 129, 0.16), transparent 28%), #09090b;
+  }
 }
 
 button,

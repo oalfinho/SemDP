@@ -16,22 +16,19 @@ const inputClass =
 export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProps) {
   const [nome, setNome] = useState('')
   const [percentual, setPercentual] = useState('75')
-  const [totalAulas, setTotalAulas] = useState('0')
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     await onSubmit(nome, 
-      Number(percentual), 
-      Number(totalAulas))
+      Number(percentual),
+      0)
     setNome('')
     setPercentual('75')
-    setTotalAulas('')
   }
 
   function handleClose() {
     setNome('')
     setPercentual('75')
-    setTotalAulas('')
     onClose()
   }
 
@@ -59,18 +56,9 @@ export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProp
             className={inputClass}
           />
         </label>
-        <label className="block text-sm text-zinc-300">
-          Total de aulas no semestre
-          <input
-            type="number"
-            min={1}
-            required
-            value={totalAulas}
-            onChange={(e) => setTotalAulas(e.target.value)}
-            className={inputClass}
-            placeholder='120 aulas'
-          />
-        </label>
+        <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-xs leading-relaxed text-emerald-200">
+          Você não precisa informar o total de aulas. O SemDP calcula automaticamente pelo período e pelos horários da sua grade.
+        </p>
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"

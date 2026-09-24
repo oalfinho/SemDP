@@ -224,6 +224,8 @@ export function Dashboard() {
         <>
           <GradeSemana
             disciplinas={disciplinas}
+            semestre={semestre}
+            extras={extras}
             onAdd={(dia) => {
               if (disciplinas.length === 0) {
                 setModalDisc(true)
