@@ -4,12 +4,7 @@ Quantas faltas eu ainda posso ter sem pegar DP?
 
 Essa é uma dúvida que praticamente todo universitário tem durante o semestre.
 
-O SemDP automatiza esse cálculo considerando:
-- carga horária
-- presença mínima
-- grade semanal
-- feriados
-- recessos
+O SemDP automatiza esse cálculo considerando o total oficial de aulas informado pelo usuário, o percentual mínimo de presença e as faltas registradas.
 
 permitindo acompanhar em tempo real o risco de reprovação por frequência.
 
@@ -23,13 +18,14 @@ permitindo acompanhar em tempo real o risco de reprovação por frequência.
 
 ## O que ele faz
 
-- cadastra disciplinas e percentual mínimo de presença
-- monta a grade semanal do semestre
-- calcula aulas previstas no período
+- cadastra disciplinas, total de aulas e percentual mínimo de presença
+- associa um ou mais dias da semana a cada disciplina e organiza a grade semanal
+- calcula o limite exclusivamente a partir do total de aulas e da presença mínima
 - registra faltas por data e disciplina
 - mostra limite de faltas, faltas usadas e faltas restantes
-- ignora feriados nacionais e dias de recesso cadastrados
-- mostra o próximo feriado em destaque no dashboard
+- valida a data da falta usando o semestre, os dias da disciplina, feriados e recessos
+- resume aulas, faltas usadas e disciplinas em risco de DP no dashboard
+- mostra o próximo feriado como informação auxiliar
 - permite login com e-mail e Google
 - mantém os dados separados por usuário no Firebase
 
@@ -59,14 +55,14 @@ Próximas funcionalidades planejadas:
 - Instalação direta no celular e desktop
 - Funcionamento offline para consulta e registro de faltas
 - Sincronização automática quando a conexão retornar
-- Dashboard com indicadores visuais de risco de DP
 - Estatísticas de presença por disciplina
 - Notificações para disciplinas próximas do limite de faltas
 
 ## Observações
 
-- o cálculo considera blocos de 50 minutos por aula
-- o calendário considera feriados nacionais e recessos cadastrados pelo usuário
+- o total de aulas é informado pelo usuário e não é reduzido por feriados ou recessos
+- os dias da semana servem para organizar a grade e validar faltas, sem interferir no limite
+- o calendário considera feriados nacionais e recessos cadastrados ao validar datas
 - a ideia principal do projeto é reduzir a fricção de acompanhar presença em faculdade sem depender de planilha ou cálculo manual
 
 ## Acesso

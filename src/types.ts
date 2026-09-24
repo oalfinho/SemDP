@@ -8,14 +8,10 @@ export type Falta = {
   created_at: string
 }
 
-export type Horario = {
+export type DiaAula = {
   id: string
-  user_id: string
   disciplina_id: string
   dia_semana: number
-  hora_inicio: string
-  hora_fim: string
-  created_at: string
 }
 
 export type Disciplina = {
@@ -25,7 +21,7 @@ export type Disciplina = {
   percentual_presenca: number
   total_aulas: number
   created_at: string
-  horarios: Horario[]
+  dias: DiaAula[]
   faltas: Falta[]
 }
 

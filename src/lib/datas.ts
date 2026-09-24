@@ -2,7 +2,7 @@ export function toISODate(d: Date) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
-  return `${day}-${m}-${y}`
+  return `${y}-${m}-${day}`
 }
 
 export function parseISODate(iso: string) {
@@ -29,17 +29,6 @@ export function parseISODate(iso: string) {
   return new Date(y, m - 1, d)
 }
 
-export function count50MinAulas(horaInicio: string, horaFim: string) {
-  const parseMin = (h: string) => {
-    const [hh, mm] = h.slice(0, 5).split(':').map(Number)
-    return (hh || 0) * 60 + (mm || 0)
-  }
-  const start = parseMin(horaInicio)
-  const end = parseMin(horaFim)
-  const diff = Math.max(0, end - start)
-  return Math.floor(diff / 50)
-}
-
 export function addDays(iso: string, days: number) {
   const d = parseISODate(iso)
   d.setDate(d.getDate() + days)
@@ -52,10 +41,6 @@ export function hojeLocal() {
 
 export function formatarData(iso: string) {
   return parseISODate(iso).toLocaleDateString('pt-BR')
-}
-
-export function formatarHora(hora: string) {
-  return hora.slice(0, 5)
 }
 
 export const DIAS_SEMANA = [

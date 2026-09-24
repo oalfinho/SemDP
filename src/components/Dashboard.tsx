@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { GradeSemana } from './GradeSemana'
 import { DisciplinaModal } from './modals/DisciplinaModal'
-import { HorarioModal } from './modals/HorarioModal'
+import { DiaAulaModal } from './modals/DiaAulaModal'
 import { FaltaModal } from './modals/FaltaModal'
 import { RecessoModal } from './modals/RecessoModal'
 import { useAuth } from '../context/AuthContext'
-import { expandirSemestre } from '../lib/calendario'
 import { hojeLocal, toISODate } from '../lib/datas'
 import { proximoFeriado } from '../lib/feriados'
 import { useDashboardData } from '../hooks/useDashboardData'
 import type { Disciplina } from '../types'
 import { criarDisciplina, excluirDisciplina } from '../services/disciplinasService'
-import { criarHorario, excluirHorario } from '../services/horariosService'
+import { criarDia, excluirDia } from '../services/diasService'
 import { criarFalta, excluirFalta, validarFalta } from '../services/faltasService'
 import { salvarSemestre } from '../services/semestreService'
 import { criarRecesso } from '../services/recessosService'
@@ -21,6 +20,7 @@ import { DashboardEmpty } from './dashboard/DashboardEmpty'
 import { DashboardSemesterForm } from './dashboard/DashboardSemesterForm'
 import { DashboardDisciplinas } from './dashboard/DashboardDisciplinas'
 import { DashboardFeriado } from './dashboard/DashboardFeriado'
+import { DashboardResumo } from './dashboard/DashboardResumo'
 
 export function Dashboard() {
   const { user, signOut } = useAuth()
@@ -35,11 +35,12 @@ export function Dashboard() {
   })
 
   const [modalDisc, setModalDisc] = useState(false)
-  const [modalHorario, setModalHorario] = useState(false)
+  const [modalDias, setModalDias] = useState(false)
   const [disciplinaFalta, setDisciplinaFalta] = useState<Disciplina | null>(null)
   const [modalRecesso, setModalRecesso] = useState(false)
 
-  const [diaHorarioSelecionado, setDiaHorarioSelecionado] = useState(5)
+  const [diaSelecionado, setDiaSelecionado] = useState<number | undefined>()
+  const [disciplinaDiasId, setDisciplinaDiasId] = useState<string | undefined>()
 
   // Sincronizar início/fim com semestre carregado
   useEffect(() => {
@@ -68,12 +69,6 @@ export function Dashboard() {
     return dataHoje.getTime() === dataFeriado.getTime()
   }, [proximoFeriadoAtual])
 
-  const horarios = useMemo(() => disciplinas.flatMap((d) => d.horarios), [disciplinas])
-
-  const resumo = useMemo(() => {
-    if (!semestre) return null
-    return expandirSemestre(semestre.inicio, semestre.fim, horarios, extras)
-  }, [semestre, horarios, extras])
 
   async function handleSalvarSemestre(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -95,28 +90,30 @@ export function Dashboard() {
     if (!user) return
 
     try {
-      await criarDisciplina(user.uid, nome, percentual, totalAulas)
+      const disciplinaId = await criarDisciplina(user.uid, nome, percentual, totalAulas)
       setModalDisc(false)
+      setDisciplinaDiasId(disciplinaId)
       await reload()
+      setModalDias(true)
     } catch (err) {
       setAppError(err instanceof Error ? err.message : 'Erro ao criar disciplina.')
     }
   }
 
-  async function handleCriarHorario(
-    disciplinaId: string,
-    dia: number,
-    horaInicio: string,
-    horaFim: string,
-  ) {
+  async function handleSalvarDias(disciplinaId: string, selecionados: number[]) {
     if (!user) return
-
+    const disciplina = disciplinas.find((item) => item.id === disciplinaId)
+    if (!disciplina) return
+    const atuais = disciplina.dias ?? []
     try {
-      await criarHorario(user.uid, disciplinaId, dia, horaInicio, horaFim)
-      setModalHorario(false)
+      await Promise.all([
+        ...selecionados.filter((dia) => !atuais.some((item) => item.dia_semana === dia)).map((dia) => criarDia(user.uid, disciplinaId, dia)),
+        ...atuais.filter((item) => !selecionados.includes(item.dia_semana)).map((item) => excluirDia(user.uid, disciplinaId, item.id)),
+      ])
+      setModalDias(false)
       await reload()
     } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao criar horário.')
+      setAppError(err instanceof Error ? err.message : 'Erro ao salvar dias da disciplina.')
     }
   }
 
@@ -153,7 +150,7 @@ export function Dashboard() {
 
   async function handleExcluirDisciplina(id: string) {
     if (!user) return
-    if (!confirm('Excluir esta disciplina, horários e faltas?')) return
+    if (!confirm('Excluir esta disciplina, dias e faltas?')) return
 
     try {
       await excluirDisciplina(user.uid, id)
@@ -174,20 +171,11 @@ export function Dashboard() {
     }
   }
 
-  async function handleExcluirHorario(disciplinaId: string, id: string) {
-    if (!user) return
 
-    try {
-      await excluirHorario(user.uid, disciplinaId, id)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao excluir horário.')
-    }
-  }
-
-  function abrirHorario(dia: number) {
-    setDiaHorarioSelecionado(dia)
-    setModalHorario(true)
+  function abrirDias(dia?: number, disciplinaId?: string) {
+    setDiaSelecionado(dia)
+    setDisciplinaDiasId(disciplinaId)
+    setModalDias(true)
   }
 
   return (
@@ -198,6 +186,8 @@ export function Dashboard() {
        onNovaDisciplina={() => setModalDisc(true)}
        onLogout={() => void signOut()}
         />
+
+      {!loading && <DashboardResumo disciplinas={disciplinas} />}
 
       {proximoFeriadoAtual && (
         <DashboardFeriado
@@ -210,7 +200,6 @@ export function Dashboard() {
         inicio={inicio}
         fim={fim}
         semestre={semestre}
-        resumo={resumo}
         onInicioChange={setInicio}
         onFimChange={setFim}
         onSubmit={handleSalvarSemestre}
@@ -229,7 +218,7 @@ export function Dashboard() {
                 setModalDisc(true)
                 return
               }
-              abrirHorario(dia)
+              abrirDias(dia)
             }}
           />
 
@@ -249,13 +238,10 @@ export function Dashboard() {
           ) : (
            <DashboardDisciplinas
             disciplinas={disciplinas}
-            semestre={semestre}
-            extras={extras}
             onAddFalta={setDisciplinaFalta}
-            onAddHorario={(dia) => abrirHorario(dia ?? 1)}
+            onEditDias={(disciplina) => abrirDias(undefined, disciplina.id)}
             onDeleteDisciplina={handleExcluirDisciplina}
             onDeleteFalta={handleExcluirFalta}
-            onDeleteHorario={handleExcluirHorario}
         />
           )}
         </>
@@ -267,12 +253,13 @@ export function Dashboard() {
         onSubmit={handleCriarDisciplina}
       />
 
-      <HorarioModal
-        open={modalHorario}
+      <DiaAulaModal
+        open={modalDias}
         disciplinas={disciplinas}
-        initialDia={diaHorarioSelecionado}
-        onClose={() => setModalHorario(false)}
-        onSubmit={handleCriarHorario}
+        initialDia={diaSelecionado}
+        initialDisciplinaId={disciplinaDiasId}
+        onClose={() => setModalDias(false)}
+        onSubmit={handleSalvarDias}
       />
 
       <FaltaModal

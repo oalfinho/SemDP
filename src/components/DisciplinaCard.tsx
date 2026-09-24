@@ -1,165 +1,39 @@
-import { aulasDaDisciplina } from '../lib/calendario'
 import { limiteFaltas, statusFaltas } from '../lib/calculo'
-import { formatarData, formatarHora, nomeDia } from '../lib/datas'
-import type { DiaSemAula, Disciplina, Semestre } from '../types'
+import { formatarData, nomeDia } from '../lib/datas'
+import type { Disciplina } from '../types'
 
-const estilos = {
-  ok: 'border-zinc-800',
-  alerta: 'border-amber-500/50',
-  limite: 'border-orange-500/70',
-  dp: 'border-rose-500/80',
-} as const
+const estilos = { ok: 'border-zinc-800', alerta: 'border-amber-500/50', limite: 'border-orange-500/70', dp: 'border-rose-500/80' } as const
+const rotulos = { ok: 'Dentro do limite', alerta: 'Quase no limite', limite: 'Sem faltas restantes', dp: 'Limite ultrapassado' } as const
 
-const rotulos = {
-  ok: 'Dentro do limite',
-  alerta: 'Quase no limite',
-  limite: 'Sem faltas restantes',
-  dp: 'Risco de DP',
-} as const
+type Props = { disciplina: Disciplina; onAddFalta: () => void; onEditDias: () => void; onDelete: () => void; onDeleteFalta: (id: string) => void }
 
-type Props = {
-  disciplina: Disciplina
-  semestre: Semestre | null
-  extras: DiaSemAula[]
-  onAddFalta: () => void
-  onAddHorario: (diaSemana?: number) => void
-  onDelete: () => void
-  onDeleteFalta: (id: string) => void
-  onDeleteHorario: (id: string) => void
-}
-
-export function DisciplinaCard({
-  disciplina,
-  semestre,
-  extras,
-  onAddFalta,
-  onAddHorario,
-  onDelete,
-  onDeleteFalta,
-  onDeleteHorario,
-}: Props) {
-  const calc = semestre
-    ? aulasDaDisciplina(disciplina.id, semestre.inicio, semestre.fim, disciplina.horarios, extras)
-    : { previstas: [], puladas: [] }
-
-  const total = disciplina.total_aulas
-  const usadas = disciplina.faltas.reduce((acc, f) => acc + f.quantidade, 0)
+export function DisciplinaCard({ disciplina, onAddFalta, onEditDias, onDelete, onDeleteFalta }: Props) {
+  const total = disciplina.total_aulas ?? 0
+  const usadas = disciplina.faltas.reduce((acc, falta) => acc + falta.quantidade, 0)
   const limite = limiteFaltas(total, disciplina.percentual_presenca)
-  const restantes = limite - usadas
+  const restantes = Math.max(0, limite - usadas)
   const status = statusFaltas(usadas, limite)
   const pct = limite === 0 ? (usadas > 0 ? 100 : 0) : Math.min(100, (usadas / limite) * 100)
-
-  const barra =
-    status === 'dp'
-      ? 'bg-rose-500'
-      : status === 'limite'
-        ? 'bg-orange-400'
-        : status === 'alerta'
-          ? 'bg-amber-400'
-          : 'bg-emerald-400'
-
-  const horarios = [...disciplina.horarios].sort(
-    (a, b) => a.dia_semana - b.dia_semana || a.hora_inicio.localeCompare(b.hora_inicio),
-  )
-  const faltasOrdenadas = [...disciplina.faltas].sort((a, b) => b.data.localeCompare(a.data))
+  const barra = status === 'dp' ? 'bg-rose-500' : status === 'limite' ? 'bg-orange-400' : status === 'alerta' ? 'bg-amber-400' : 'bg-emerald-400'
+  const dias = [...(disciplina.dias ?? [])].sort((a, b) => a.dia_semana - b.dia_semana)
+  const faltas = [...disciplina.faltas].sort((a, b) => b.data.localeCompare(a.data))
 
   return (
-    <article className={`flex flex-col rounded-2xl border bg-gradient-to-b from-zinc-900 to-zinc-950 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] ${estilos[status]}`}>
+    <article className={`flex flex-col rounded-2xl border bg-gradient-to-b from-zinc-900 to-zinc-950 p-5 ${estilos[status]}`}>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-50">{disciplina.nome}</h2>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            {total === 0 ? 'Sem aulas no calendário' : rotulos[status]}
-          </p>
-        </div>
-        <button type="button" onClick={onDelete} className="rounded-lg border border-zinc-800 px-2 py-1 text-[11px] text-zinc-400 transition hover:border-rose-500/50 hover:text-rose-300">
-          Excluir
-        </button>
+        <div><h2 className="text-lg font-semibold text-zinc-50">{disciplina.nome}</h2><p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">{total === 0 ? 'Informe o total de aulas' : rotulos[status]}</p></div>
+        <button type="button" onClick={onDelete} className="rounded-lg border border-zinc-800 px-2 py-1 text-[11px] text-zinc-400 hover:text-rose-300">Excluir</button>
       </div>
-
-      <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-        {horarios.length === 0 && (
-          <li className="rounded-xl border border-dashed border-zinc-700 bg-zinc-950/50 px-3 py-2 text-zinc-500">Cadastre o dia da semana e o horário.</li>
-        )}
-        {horarios.map((h) => (
-          <li key={h.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2">
-            <span>
-              {nomeDia(h.dia_semana)} · {formatarHora(h.hora_inicio)} às {formatarHora(h.hora_fim)}
-            </span>
-            <button
-              type="button"
-              className="text-[11px] text-zinc-500 transition hover:text-rose-300"
-              onClick={() => onDeleteHorario(h.id)}
-            >
-              Tirar
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
-          <dt className="text-[11px] text-zinc-500">No semestre</dt>
-          <dd className="mt-1 text-xl font-semibold text-zinc-50">{total}</dd>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
-          <dt className="text-[11px] text-zinc-500">Limite</dt>
-          <dd className="mt-1 text-xl font-semibold text-zinc-50">{limite}</dd>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3">
-          <dt className="text-[11px] text-zinc-500">Restam</dt>
-          <dd className={`mt-1 text-xl font-semibold ${restantes < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-            {restantes}
-          </dd>
-        </div>
+      <p className="mt-4 text-sm text-zinc-400"><span className="text-zinc-500">Dias:</span> {dias.length ? dias.map((dia) => nomeDia(dia.dia_semana)).join(' • ') : 'Nenhum dia associado'}</p>
+      <p className="mt-1 text-sm text-zinc-400">Presença mínima: <span className="text-zinc-200">{disciplina.percentual_presenca}%</span></p>
+      <dl className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+        {[['No semestre', total], ['Limite', limite], ['Usadas', usadas], ['Restam', restantes]].map(([label, value]) => <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-3"><dt className="text-[11px] text-zinc-500">{label}</dt><dd className={`mt-1 text-xl font-semibold ${label === 'Restam' ? 'text-emerald-400' : 'text-zinc-50'}`}>{value}</dd></div>)}
       </dl>
-
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
-        <div className={`h-full rounded-full ${barra}`} style={{ width: `${pct}%` }} />
-      </div>
-      <p className="mt-2 text-xs text-zinc-500">
-        {usadas} falta{usadas === 1 ? '' : 's'} · {calc.puladas.length} encontro
-        {calc.puladas.length === 1 ? '' : 's'} em feriado/recesso · {disciplina.percentual_presenca}%
-        de presença
-      </p>
-
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => onAddHorario(horarios[0]?.dia_semana ?? 1)}
-          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-300"
-        >
-          Horário
-        </button>
-        <button
-          type="button"
-          onClick={onAddFalta}
-          className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200 transition hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-300"
-        >
-          Falta
-        </button>
-      </div>
-
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800"><div className={`h-full rounded-full ${barra}`} style={{ width: `${pct}%` }} /></div>
+      <div className="mt-4 flex gap-2"><button type="button" onClick={onAddFalta} className="flex-1 rounded-xl bg-emerald-500 px-3 py-2 text-sm font-semibold text-zinc-950">+ Registrar falta</button><button type="button" onClick={onEditDias} className="flex-1 rounded-xl border border-zinc-700 px-3 py-2 text-sm text-zinc-200">Editar dias</button></div>
       <ul className="mt-4 max-h-40 space-y-2 overflow-auto text-sm">
-        {faltasOrdenadas.length === 0 && <li className="rounded-xl border border-dashed border-zinc-700 px-3 py-2 text-zinc-500">Nenhuma falta registrada.</li>}
-        {faltasOrdenadas.map((falta) => (
-          <li
-            key={falta.id}
-            className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2"
-          >
-            <span className="text-zinc-300">
-              {formatarData(falta.data)} · {falta.quantidade} aula{falta.quantidade > 1 ? 's' : ''}
-              {falta.observacao ? ` · ${falta.observacao}` : ''}
-            </span>
-            <button
-              type="button"
-              className="shrink-0 text-[11px] text-zinc-500 transition hover:text-rose-300"
-              onClick={() => onDeleteFalta(falta.id)}
-            >
-              Tirar
-            </button>
-          </li>
-        ))}
+        {faltas.length === 0 && <li className="rounded-xl border border-dashed border-zinc-700 px-3 py-2 text-zinc-500">Nenhuma falta registrada.</li>}
+        {faltas.map((falta) => <li key={falta.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2"><span className="text-zinc-300">{formatarData(falta.data)} · {falta.quantidade} aula{falta.quantidade > 1 ? 's' : ''}{falta.observacao ? ` · ${falta.observacao}` : ''}</span><button type="button" className="text-[11px] text-zinc-500 hover:text-rose-300" onClick={() => onDeleteFalta(falta.id)}>Tirar</button></li>)}
       </ul>
     </article>
   )

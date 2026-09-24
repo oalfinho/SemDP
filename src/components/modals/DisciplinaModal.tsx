@@ -16,12 +16,12 @@ const inputClass =
 export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProps) {
   const [nome, setNome] = useState('')
   const [percentual, setPercentual] = useState('75')
-  const [totalAulas, setTotalAulas] = useState('0')
+  const [totalAulas, setTotalAulas] = useState('')
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
     await onSubmit(nome, 
-      Number(percentual), 
+      Number(percentual),
       Number(totalAulas))
     setNome('')
     setPercentual('75')
@@ -61,15 +61,7 @@ export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProp
         </label>
         <label className="block text-sm text-zinc-300">
           Total de aulas no semestre
-          <input
-            type="number"
-            min={1}
-            required
-            value={totalAulas}
-            onChange={(e) => setTotalAulas(e.target.value)}
-            className={inputClass}
-            placeholder='120 aulas'
-          />
+          <input type="number" required min={1} value={totalAulas} onChange={(e) => setTotalAulas(e.target.value)} className={inputClass} placeholder="80" />
         </label>
         <div className="flex justify-end gap-2 pt-2">
           <button

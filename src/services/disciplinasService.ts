@@ -1,5 +1,5 @@
 import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query } from 'firebase/firestore'
-import type { Disciplina, Falta, Horario } from '../types'
+import type { DiaAula, Disciplina, Falta } from '../types'
 import { db } from '../lib/firebase'
 
 export async function criarDisciplina(
@@ -7,17 +7,18 @@ export async function criarDisciplina(
   nome: string,
   percentual_presenca: number,
   total_aulas: number,
-): Promise<void> {
+): Promise<string> {
   const firestore = db
   if (!firestore) throw new Error('Firebase não inicializado')
 
-  await addDoc(collection(firestore, 'users', userId, 'disciplinas'), {
+  const referencia = await addDoc(collection(firestore, 'users', userId, 'disciplinas'), {
     nome: nome.trim(),
     percentual_presenca,
     total_aulas,
     user_id: userId,
     created_at: new Date().toISOString(),
   })
+  return referencia.id
 }
 
 export async function carregarDisciplinas(userId: string): Promise<Disciplina[]> {
@@ -30,13 +31,13 @@ export async function carregarDisciplinas(userId: string): Promise<Disciplina[]>
 
   const disciplinas = await Promise.all(
     disciplinasSnap.docs.map(async (discSnap) => {
-      const rawDisciplina = discSnap.data() as Omit<Disciplina, 'id' | 'horarios' | 'faltas'>
+      const rawDisciplina = discSnap.data() as Partial<Omit<Disciplina, 'id' | 'dias' | 'faltas'>>
 
-      const [horariosSnap, faltasSnap] = await Promise.all([
+      const [diasSnap, faltasSnap] = await Promise.all([
         getDocs(
           query(
-            collection(firestore, 'users', userId, 'disciplinas', discSnap.id, 'horarios'),
-            orderBy('created_at', 'asc'),
+            collection(firestore, 'users', userId, 'disciplinas', discSnap.id, 'dias'),
+            orderBy('dia_semana', 'asc'),
           ),
         ),
         getDocs(
@@ -49,11 +50,16 @@ export async function carregarDisciplinas(userId: string): Promise<Disciplina[]>
 
       return {
         id: discSnap.id,
-        ...rawDisciplina,
-        horarios: horariosSnap.docs.map((docSnap) => ({
+        user_id: rawDisciplina.user_id ?? userId,
+        nome: rawDisciplina.nome ?? 'Disciplina sem nome',
+        percentual_presenca: rawDisciplina.percentual_presenca ?? 75,
+        total_aulas: rawDisciplina.total_aulas ?? 0,
+        created_at: rawDisciplina.created_at ?? '',
+        dias: diasSnap.docs.map((docSnap) => ({
           id: docSnap.id,
-          ...(docSnap.data() as Omit<Horario, 'id'>),
-        })) as Horario[],
+          ...(docSnap.data() as Omit<DiaAula, 'id'>),
+          disciplina_id: discSnap.id,
+        })) as DiaAula[],
         faltas: faltasSnap.docs.map((docSnap) => ({
           id: docSnap.id,
           ...(docSnap.data() as Omit<Falta, 'id'>),
@@ -69,14 +75,14 @@ export async function excluirDisciplina(userId: string, disciplinaId: string): P
   const firestore = db
   if (!firestore) throw new Error('Firebase não inicializado')
 
-  const [horariosSnap, faltasSnap] = await Promise.all([
-    getDocs(collection(firestore, 'users', userId, 'disciplinas', disciplinaId, 'horarios')),
+  const [diasSnap, faltasSnap] = await Promise.all([
+    getDocs(collection(firestore, 'users', userId, 'disciplinas', disciplinaId, 'dias')),
     getDocs(collection(firestore, 'users', userId, 'disciplinas', disciplinaId, 'faltas')),
   ])
 
   await Promise.all([
-    ...horariosSnap.docs.map((docSnap) =>
-      deleteDoc(doc(firestore, 'users', userId, 'disciplinas', disciplinaId, 'horarios', docSnap.id)),
+    ...diasSnap.docs.map((docSnap) =>
+      deleteDoc(doc(firestore, 'users', userId, 'disciplinas', disciplinaId, 'dias', docSnap.id)),
     ),
     ...faltasSnap.docs.map((docSnap) =>
       deleteDoc(doc(firestore, 'users', userId, 'disciplinas', disciplinaId, 'faltas', docSnap.id)),

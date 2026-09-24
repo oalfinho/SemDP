@@ -1,6 +1,6 @@
 import { addDoc, collection, deleteDoc, doc } from 'firebase/firestore'
 import type { DiaSemAula, Disciplina, Semestre } from '../types'
-import { aulasDaDisciplina } from '../lib/calendario'
+import { datasDeAula } from '../lib/calendario'
 import { db } from '../lib/firebase'
 
 export async function criarFalta(
@@ -36,13 +36,11 @@ export function validarFalta(
   extras: DiaSemAula[],
   data: string,
 ): boolean {
-  const { previstas } = aulasDaDisciplina(
-    disciplina.id,
+  const datasValidas = datasDeAula(
     semestre.inicio,
     semestre.fim,
-    disciplina.horarios,
+    disciplina.dias,
     extras,
   )
-
-  return previstas.some((aula) => aula.data === data)
+  return datasValidas.includes(data)
 }
