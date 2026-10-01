@@ -1,294 +1,313 @@
-import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
-import { GradeSemana } from './GradeSemana'
-import { DisciplinaModal } from './modals/DisciplinaModal'
-import { HorarioModal } from './modals/HorarioModal'
-import { FaltaModal } from './modals/FaltaModal'
-import { RecessoModal } from './modals/RecessoModal'
-import { useAuth } from '../context/AuthContext'
-import { expandirSemestre } from '../lib/calendario'
-import { hojeLocal, toISODate } from '../lib/datas'
-import { proximoFeriado } from '../lib/feriados'
-import { useDashboardData } from '../hooks/useDashboardData'
-import type { Disciplina } from '../types'
-import { criarDisciplina, excluirDisciplina } from '../services/disciplinasService'
-import { criarHorario, excluirHorario } from '../services/horariosService'
-import { criarFalta, excluirFalta, validarFalta } from '../services/faltasService'
-import { salvarSemestre } from '../services/semestreService'
-import { criarRecesso } from '../services/recessosService'
-import { DashboardHeader } from './dashboard/DashboardHeader'
-import { DashboardError } from './dashboard/DashboardError'
-import { DashboardEmpty } from './dashboard/DashboardEmpty'
-import { DashboardSemesterForm } from './dashboard/DashboardSemesterForm'
-import { DashboardDisciplinas } from './dashboard/DashboardDisciplinas'
-import { DashboardFeriado } from './dashboard/DashboardFeriado'
+import { AppShell } from './AppShell'
+import { AcademicEditor } from './AcademicEditor'
+import { Settings } from './views/Settings'
+import type { Tab, Editor } from './dashboardTypes'
+import { useMemo, useState } from 'react'
+import { useAuth } from '../context/authContextValue'
+import { useAcademicData } from '../hooks/useAcademicData'
+import { useAcademicActions } from '../hooks/useAcademicActions'
+import { criarCalendario } from '../lib/calendario'
+import { hojeLocal } from '../lib/datas'
+import { criarDemonstracao } from '../lib/demo'
+import { resumirDisciplina } from '../domain/frequencia'
+import * as repository from '../services/academicoRepository'
+import { Icon } from './Icon'
 
-export function Dashboard() {
+import { Overview, SubjectSummary } from './views/Overview'
+import { SubjectDetail } from './views/SubjectDetail'
+import { Agenda } from './views/Agenda'
+
+export function Dashboard({ demo = false }: { demo?: boolean }) {
   const { user, signOut } = useAuth()
-  const { disciplinas, semestre, extras, loading, error, reload } = useDashboardData(user?.uid)
-  const [appError, setAppError] = useState<string | null>(error)
+  const demonstration = useMemo(() => (demo ? criarDemonstracao() : undefined), [demo])
+  const { dados, loading, error, reload } = useAcademicData(
+    demo ? undefined : user?.uid,
+    demonstration,
+  )
+  const actions = useAcademicActions(reload, demo)
+  const [tab, setTab] = useState<Tab>('home')
+  const [semesterId, setSemesterId] = useState('')
+  const [subjectId, setSubjectId] = useState<string | null>(null)
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const [search, setSearch] = useState('')
+  const hoje = hojeLocal()
+  const semestre =
+    dados.semestres.find((item) => item.id === semesterId) ??
+    dados.semestres.find((item) => item.inicio <= hoje && item.fim >= hoje) ??
+    dados.semestres.at(-1)
+  const disciplinas = useMemo(
+    () => dados.disciplinas.filter((item) => item.semestre_id === semestre?.id),
+    [dados.disciplinas, semestre?.id],
+  )
+  const encontros = useMemo(
+    () =>
+      semestre
+        ? criarCalendario(
+            semestre,
+            disciplinas.flatMap((item) => item.horarios),
+            dados.recessos,
+          )
+        : [],
+    [semestre, disciplinas, dados.recessos],
+  )
+  const resumos = useMemo(
+    () => disciplinas.map((item) => resumirDisciplina(item, encontros)),
+    [disciplinas, encontros],
+  )
+  const detalhe = resumos.find((item) => item.disciplina.id === subjectId)
+  const uid = user?.uid ?? ''
 
-  const [inicio, setInicio] = useState(hojeLocal())
-  const [fim, setFim] = useState(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() + 4)
-    return toISODate(d)
-  })
-
-  const [modalDisc, setModalDisc] = useState(false)
-  const [modalHorario, setModalHorario] = useState(false)
-  const [disciplinaFalta, setDisciplinaFalta] = useState<Disciplina | null>(null)
-  const [modalRecesso, setModalRecesso] = useState(false)
-
-  const [diaHorarioSelecionado, setDiaHorarioSelecionado] = useState(5)
-
-  // Sincronizar início/fim com semestre carregado
-  useEffect(() => {
-    if (semestre) {
-      setInicio(semestre.inicio)
-      setFim(semestre.fim)
-    }
-  }, [semestre])
-
-  // Sincronizar erro
-  useEffect(() => {
-    setAppError(error)
-  }, [error])
-
-  const proximoFeriadoAtual = useMemo(() => {
-    if (!semestre) return null
-    return proximoFeriado(semestre.inicio, semestre.fim)
-  }, [semestre])
-
-  const feriadoHoje = useMemo(() => {
-    if (!proximoFeriadoAtual) return false
-    const hoje = new Date()
-    const dataHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-    const [ano, mes, dia] = proximoFeriadoAtual.data.split('-').map(Number)
-    const dataFeriado = new Date(ano, mes - 1, dia)
-    return dataHoje.getTime() === dataFeriado.getTime()
-  }, [proximoFeriadoAtual])
-
-  const horarios = useMemo(() => disciplinas.flatMap((d) => d.horarios), [disciplinas])
-
-  const resumo = useMemo(() => {
-    if (!semestre) return null
-    return expandirSemestre(semestre.inicio, semestre.fim, horarios, extras)
-  }, [semestre, horarios, extras])
-
-  async function handleSalvarSemestre(e: SubmitEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!user) return
-    if (fim < inicio) {
-      setAppError('A data final precisa ser depois do início.')
-      return
-    }
-
-    try {
-      await salvarSemestre(user.uid, inicio, fim, semestre?.id)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao salvar semestre.')
-    }
+  function abrir(value: Editor) {
+    actions.limpar()
+    setEditor(value)
   }
-
-  async function handleCriarDisciplina(nome: string, percentual: number) {
-    if (!user) return
-
-    try {
-      await criarDisciplina(user.uid, nome, percentual)
-      setModalDisc(false)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao criar disciplina.')
-    }
+  function navegar(value: Tab) {
+    window.scrollTo({ top: 0 })
+    setTab(value)
+    setSubjectId(null)
+    actions.limpar()
   }
-
-  async function handleCriarHorario(
-    disciplinaId: string,
-    dia: number,
-    horaInicio: string,
-    horaFim: string,
+  function abrirDisciplina(id: string) {
+    window.scrollTo({ top: 0 })
+    setTab('subjects')
+    setSubjectId(id)
+  }
+  function registrarFalta(id: string, data?: string) {
+    const disciplina = disciplinas.find((item) => item.id === id)
+    if (disciplina) abrir({ type: 'absence', disciplina, data })
+  }
+  function confirmar(
+    message: string,
+    action: () => Promise<unknown>,
+    success: string,
+    callback?: () => void,
   ) {
-    if (!user) return
-
-    try {
-      await criarHorario(user.uid, disciplinaId, dia, horaInicio, horaFim)
-      setModalHorario(false)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao criar horário.')
-    }
+    if (window.confirm(message)) void actions.executar(action, success, callback)
   }
-
-  async function handleCriarFalta(data: string, quantidade: number, observacao: string) {
-    if (!user || !disciplinaFalta || !semestre) return
-
-    if (!validarFalta(disciplinaFalta, semestre, extras, data)) {
-      setAppError(
-        'Essa data não tem aula desta disciplina (feriado, recesso ou dia da semana diferente).'
-      )
-      return
-    }
-
-    try {
-      await criarFalta(user.uid, disciplinaFalta.id, data, quantidade, observacao)
-      setDisciplinaFalta(null)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao registrar falta.')
-    }
+  function exportar() {
+    const url = URL.createObjectURL(
+      new Blob(
+        [
+          JSON.stringify(
+            { schemaVersion: 3, exportadoEm: new Date().toISOString(), ...dados },
+            null,
+            2,
+          ),
+        ],
+        { type: 'application/json' },
+      ),
+    )
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `semdp-backup-${hoje}.json`
+    anchor.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-
-  async function handleCriarRecesso(data: string, motivo: string) {
-    if (!user) return
-
-    try {
-      await criarRecesso(user.uid, data, motivo)
-      setModalRecesso(false)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao criar recesso.')
-    }
-  }
-
-  async function handleExcluirDisciplina(id: string) {
-    if (!user) return
-    if (!confirm('Excluir esta disciplina, horários e faltas?')) return
-
-    try {
-      await excluirDisciplina(user.uid, id)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao excluir disciplina.')
-    }
-  }
-
-  async function handleExcluirFalta(disciplinaId: string, id: string) {
-    if (!user) return
-
-    try {
-      await excluirFalta(user.uid, disciplinaId, id)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao excluir falta.')
-    }
-  }
-
-  async function handleExcluirHorario(disciplinaId: string, id: string) {
-    if (!user) return
-
-    try {
-      await excluirHorario(user.uid, disciplinaId, id)
-      await reload()
-    } catch (err) {
-      setAppError(err instanceof Error ? err.message : 'Erro ao excluir horário.')
-    }
-  }
-
-  function abrirHorario(dia: number) {
-    setDiaHorarioSelecionado(dia)
-    setModalHorario(true)
-  }
+  const fechar = () => setEditor(null)
 
   return (
-    <div className="mx-auto min-h-svh max-w-6xl px-4 py-8">
-
-      <DashboardHeader
-       email={user?.email}
-       onNovaDisciplina={() => setModalDisc(true)}
-       onLogout={() => void signOut()}
-        />
-
-      {proximoFeriadoAtual && (
-        <DashboardFeriado
-        nome={proximoFeriadoAtual.nome}
-        data={proximoFeriadoAtual.data}
-        feriadoHoje={feriadoHoje}
-  />
-)}
-      <DashboardSemesterForm
-        inicio={inicio}
-        fim={fim}
-        semestre={semestre}
-        resumo={resumo}
-        onInicioChange={setInicio}
-        onFimChange={setFim}
-        onSubmit={handleSalvarSemestre}
-        />
-     
-      <DashboardError message={appError} />
-
-      {loading ? (
-        <p className="mt-16 text-center text-zinc-500">Carregando…</p>
-      ) : (
+    <AppShell
+      demo={demo}
+      user={user}
+      tab={tab}
+      semestre={semestre}
+      semestres={dados.semestres}
+      busy={actions.busy}
+      navegar={navegar}
+      onSemesterChange={(id) => {
+        setSemesterId(id)
+        setSubjectId(null)
+        setEditor(null)
+      }}
+    >
+      {error && (
+        <div className="message error" role="alert">
+          {error}
+          <button className="button small" onClick={() => void reload()}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {actions.notice && (
+        <p className="message success" role="status">
+          {actions.notice}
+        </p>
+      )}
+      {!editor && actions.error && (
+        <p className="message error" role="alert">
+          {actions.error}
+        </p>
+      )}
+      {loading && (
+        <p className="message" role="status">
+          Atualizando seus dados…
+        </p>
+      )}
+      {!loading && !error && !semestre && (
+        <section className="panel onboarding">
+          <span className="eyebrow">COMECE POR AQUI</span>
+          <h2>Um semestre mais organizado.</h2>
+          <p>
+            Defina o período, cadastre suas disciplinas e monte sua grade. O SemDP cuida dos
+            cálculos.
+          </p>
+          <button className="button primary" onClick={() => abrir({ type: 'semester' })}>
+            Configurar primeiro semestre <Icon name="arrow" />
+          </button>
+        </section>
+      )}
+      {!semestre && tab === 'settings' && (
+        <section className="panel">
+          <h2>Sua conta</h2>
+          <p className="hint">{user?.email}</p>
+          <button
+            className="button danger"
+            disabled={actions.busy}
+            onClick={() => void actions.executar(signOut, 'Sessão encerrada.')}
+          >
+            Sair da conta
+          </button>
+        </section>
+      )}
+      {semestre && (
         <>
-          <GradeSemana
-            disciplinas={disciplinas}
-            onAdd={(dia) => {
-              if (disciplinas.length === 0) {
-                setModalDisc(true)
-                return
+          {!disciplinas.length && tab !== 'settings' && (
+            <section className="panel onboarding">
+              <h2>Seu semestre está pronto.</h2>
+              <p>Adicione sua primeira disciplina para acompanhar a frequência.</p>
+              <button className="button primary" onClick={() => abrir({ type: 'subject' })}>
+                + Adicionar disciplina
+              </button>
+            </section>
+          )}
+          {tab === 'home' && disciplinas.length > 0 && (
+            <Overview
+              resumos={resumos}
+              encontros={encontros}
+              onSubject={abrirDisciplina}
+              onAbsence={registrarFalta}
+            />
+          )}
+          {tab === 'subjects' &&
+            (detalhe ? (
+              <SubjectDetail
+                resumo={detalhe}
+                busy={actions.busy}
+                onBack={() => setSubjectId(null)}
+                onEdit={() => abrir({ type: 'subject', value: detalhe.disciplina })}
+                onSchedule={(value) =>
+                  abrir({ type: 'schedule', disciplina: detalhe.disciplina, value })
+                }
+                onAbsence={() => registrarFalta(detalhe.disciplina.id)}
+                onDeleteAbsence={(id) =>
+                  confirmar(
+                    'Remover este registro de falta?',
+                    () => repository.excluirFalta(uid, detalhe.disciplina.id, id),
+                    'Falta removida.',
+                  )
+                }
+                onDeleteSchedule={(id) =>
+                  confirmar(
+                    'Excluir este horário recalcula as estimativas do semestre. Para mudanças de grade, prefira editar a vigência. Excluir mesmo assim?',
+                    () => repository.excluirHorario(uid, detalhe.disciplina.id, id),
+                    'Horário excluído.',
+                  )
+                }
+                onDelete={() =>
+                  confirmar(
+                    'Excluir permanentemente esta disciplina, seus horários e todo o histórico de faltas?',
+                    () => repository.excluirDisciplina(uid, detalhe.disciplina.id),
+                    'Disciplina excluída.',
+                    () => setSubjectId(null),
+                  )
+                }
+              />
+            ) : (
+              <>
+                <div className="section-heading">
+                  <label className="search">
+                    <span className="sr-only">Buscar disciplina</span>
+                    <input
+                      type="search"
+                      placeholder="Buscar disciplina…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </label>
+                  <button className="button primary" onClick={() => abrir({ type: 'subject' })}>
+                    <Icon name="plus" />
+                    Disciplina
+                  </button>
+                </div>
+                <div className="subjects-grid">
+                  {resumos
+                    .filter((item) =>
+                      item.disciplina.nome
+                        .toLocaleLowerCase('pt-BR')
+                        .includes(search.toLocaleLowerCase('pt-BR')),
+                    )
+                    .map((item) => (
+                      <SubjectSummary
+                        key={item.disciplina.id}
+                        resumo={item}
+                        onOpen={() => setSubjectId(item.disciplina.id)}
+                      />
+                    ))}
+                </div>
+                {search &&
+                  !resumos.some((item) =>
+                    item.disciplina.nome.toLowerCase().includes(search.toLowerCase()),
+                  ) && <p className="empty">Nenhuma disciplina encontrada.</p>}
+              </>
+            ))}
+          {tab === 'agenda' && (
+            <Agenda
+              key={semestre.id}
+              encontros={encontros}
+              disciplinas={disciplinas}
+              semestre={semestre}
+              onAbsence={registrarFalta}
+              onBreak={() => abrir({ type: 'break' })}
+            />
+          )}
+          {tab === 'settings' && (
+            <Settings
+              semestre={semestre}
+              recessos={dados.recessos}
+              busy={actions.busy}
+              demo={demo}
+              email={user?.email}
+              abrir={abrir}
+              exportar={exportar}
+              onDeleteBreak={(id) =>
+                confirmar(
+                  'Remover este dia sem aula? A estimativa será recalculada.',
+                  () => repository.excluirRecesso(uid, id),
+                  'Recesso removido.',
+                )
               }
-              abrirHorario(dia)
-            }}
-          />
-
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-zinc-50">Disciplinas</h2>
-            <button
-              type="button"
-              onClick={() => setModalRecesso(true)}
-              className="text-sm text-zinc-400 hover:text-zinc-200"
-            >
-              + dia sem aula (recesso da faculdade)
-            </button>
-          </div>
-
-          {disciplinas.length === 0 ? (
-           <DashboardEmpty />
-          ) : (
-           <DashboardDisciplinas
-            disciplinas={disciplinas}
-            semestre={semestre}
-            extras={extras}
-            onAddFalta={setDisciplinaFalta}
-            onAddHorario={(dia) => abrirHorario(dia ?? 1)}
-            onDeleteDisciplina={handleExcluirDisciplina}
-            onDeleteFalta={handleExcluirFalta}
-            onDeleteHorario={handleExcluirHorario}
-        />
+              onLogout={() =>
+                demo
+                  ? window.location.assign('/')
+                  : void actions.executar(signOut, 'Sessão encerrada.')
+              }
+            />
           )}
         </>
       )}
-
-      <DisciplinaModal
-        open={modalDisc}
-        onClose={() => setModalDisc(false)}
-        onSubmit={handleCriarDisciplina}
-      />
-
-      <HorarioModal
-        open={modalHorario}
-        disciplinas={disciplinas}
-        initialDia={diaHorarioSelecionado}
-        onClose={() => setModalHorario(false)}
-        onSubmit={handleCriarHorario}
-      />
-
-      <FaltaModal
-        open={Boolean(disciplinaFalta)}
-        disciplina={disciplinaFalta}
-        semestre={semestre}
-        extras={extras}
-        onClose={() => setDisciplinaFalta(null)}
-        onSubmit={handleCriarFalta}
-      />
-
-      <RecessoModal
-        open={modalRecesso}
-        onClose={() => setModalRecesso(false)}
-        onSubmit={handleCriarRecesso}
-      />
-    </div>
+      {editor && (
+        <AcademicEditor
+          editor={editor}
+          semestre={semestre}
+          disciplinas={disciplinas}
+          encontros={encontros}
+          uid={uid}
+          actions={actions}
+          fechar={fechar}
+          setSemesterId={setSemesterId}
+          abrirDisciplina={abrirDisciplina}
+        />
+      )}
+    </AppShell>
   )
 }
