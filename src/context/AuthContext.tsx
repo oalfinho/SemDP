@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -15,28 +8,14 @@ import {
 } from 'firebase/auth'
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { auth } from '../lib/firebase'
-
-type AuthValue = {
-  user: User | null
-  session: User | null
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<string | null>
-  signUp: (email: string, password: string) => Promise<string | null>
-  signInWithGoogle: () => Promise<string | null>
-  signOut: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthValue | null>(null)
+import { AuthContext, type AuthValue } from './authContextValue'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(auth))
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false)
-      return
-    }
+    if (!auth) return
 
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
@@ -88,10 +67,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth precisa estar dentro de AuthProvider')
-  return ctx
 }
