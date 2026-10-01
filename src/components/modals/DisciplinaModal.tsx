@@ -28,7 +28,7 @@ export function DisciplinaModal({ open, onClose, onSubmit }: DisciplinaModalProp
   }
 
   return (
-    <Modal open={open} title="Nova disciplina" onClose={handleClose}>
+    <Modal title="Nova disciplina" onClose={handleClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block text-sm text-zinc-300">
           Nome da disciplina
