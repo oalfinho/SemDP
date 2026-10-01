@@ -1,61 +1,50 @@
-export function toISODate(d: Date) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${day}-${m}-${y}`
+/** Datas acadêmicas são dias locais, sem conversão para UTC. */
+export function toISODate(date: Date): string {
+  if (Number.isNaN(date.getTime())) throw new Error('Data inválida.')
+  const year = String(date.getFullYear()).padStart(4, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-export function parseISODate(iso: string) {
-  const parts = iso.split('-').map(Number)
-  if (parts.length !== 3) return new Date(iso)
-
-  // Support both `dd-mm-yyyy` and `yyyy-mm-dd` formats.
-  let d: number, m: number, y: number
-  if (parts[0] > 31) {
-    // assume `yyyy-mm-dd`
-    y = parts[0]
-    m = parts[1]
-    d = parts[2]
-  } else {
-    // assume `dd-mm-yyyy` (legacy in this project)
-    d = parts[0]
-    m = parts[1]
-    y = parts[2]
+/** Aceita o formato canônico e DD-MM-AAAA dos registros antigos. */
+export function parseISODate(value: string): Date {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  const legacy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value)
+  if (!iso && !legacy) throw new Error(`Data inválida: ${value || 'vazia'}.`)
+  const [year, month, day] = iso
+    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+    : [Number(legacy![3]), Number(legacy![2]), Number(legacy![1])]
+  const date = new Date(year, month - 1, day)
+  if (
+    year < 1000 ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    throw new Error(`Data inexistente: ${value}.`)
   }
-
-  // Guard against two-digit years (e.g. "02" -> 1902). Interpret 0-99 as 2000-2099.
-  if (y >= 0 && y < 100) y += 2000
-
-  return new Date(y, m - 1, d)
+  return date
 }
 
-export function count50MinAulas(horaInicio: string, horaFim: string) {
-  const parseMin = (h: string) => {
-    const [hh, mm] = h.slice(0, 5).split(':').map(Number)
-    return (hh || 0) * 60 + (mm || 0)
-  }
-  const start = parseMin(horaInicio)
-  const end = parseMin(horaFim)
-  const diff = Math.max(0, end - start)
-  return Math.floor(diff / 50)
+export function normalizarData(value: string): string {
+  return toISODate(parseISODate(value))
 }
 
-export function addDays(iso: string, days: number) {
-  const d = parseISODate(iso)
-  d.setDate(d.getDate() + days)
-  return toISODate(d)
+export function addDays(value: string, days: number): string {
+  const date = parseISODate(value)
+  date.setDate(date.getDate() + days)
+  return toISODate(date)
 }
 
-export function hojeLocal() {
+export function hojeLocal(): string {
   return toISODate(new Date())
 }
-
-export function formatarData(iso: string) {
-  return parseISODate(iso).toLocaleDateString('pt-BR')
+export function formatarData(value: string): string {
+  return parseISODate(value).toLocaleDateString('pt-BR')
 }
-
-export function formatarHora(hora: string) {
-  return hora.slice(0, 5)
+export function formatarHora(value: string): string {
+  return value.slice(0, 5)
 }
 
 export const DIAS_SEMANA = [
@@ -65,8 +54,8 @@ export const DIAS_SEMANA = [
   { value: 4, label: 'Quinta-feira', curto: 'Qui' },
   { value: 5, label: 'Sexta-feira', curto: 'Sex' },
   { value: 6, label: 'Sábado', curto: 'Sáb' },
+  { value: 0, label: 'Domingo', curto: 'Dom' },
 ] as const
-
-export function nomeDia(diaSemana: number) {
-  return DIAS_SEMANA.find((d) => d.value === diaSemana)?.label ?? 'Domingo'
+export function nomeDia(day: number): string {
+  return DIAS_SEMANA.find((item) => item.value === day)?.label ?? ''
 }
