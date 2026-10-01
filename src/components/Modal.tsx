@@ -1,36 +1,44 @@
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 
-type Props = {
-  open: boolean
-  title: string
-  onClose: () => void
-  children: ReactNode
-}
-
-export function Modal({ open, title, onClose, children }: Props) {
-  if (!open) return null
-
+type Props = { title: string; onClose: () => void; children: ReactNode; busy?: boolean }
+export function Modal({ title, onClose, children, busy = false }: Props) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const dialog = ref.current
+    const previous = document.activeElement as HTMLElement | null
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      document.body.style.overflow = overflow
+      previous?.focus()
+    }
+  }, [])
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="Fechar"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-5 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold text-zinc-50">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          >
-            Fechar
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <dialog
+      ref={ref}
+      className="sheet"
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault()
+        if (!busy) onClose()
+      }}
+    >
+      <header className="sheet-heading">
+        <h2 id={titleId}>{title}</h2>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Fechar formulário"
+          disabled={busy}
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </header>
+      {children}
+    </dialog>
   )
 }
